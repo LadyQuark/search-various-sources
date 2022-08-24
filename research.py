@@ -6,7 +6,7 @@ from dotenv import load_dotenv, find_dotenv
 
 # Get API key from .env
 load_dotenv(find_dotenv())
-API_KEY = os.getenv('SCIENCE_DIRECT_API_KEY')
+API_KEY = os.getenv('SCOPUS_API_KEY')
      
 
 def search_scopus(search_term, limit=10):

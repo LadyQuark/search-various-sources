@@ -1,29 +1,20 @@
-import json
-import os
 import requests
-import urllib.parse
-import pprint
 
-def main():
-    pp = pprint.PrettyPrinter(depth=4)
-    results = search_podcasts(search_term="apple", 
-        search_type="podcastEpisode", limit=2)
-    pp.pprint(results)        
-    results = search_podcasts(search_term="apple", 
-        search_type="podcast", limit=2)
-    pp.pprint(results)
-
-def search_podcasts(search_term, search_type="podcastEpisode", limit=10):
+def search_podcasts(search_term, limit=10, search_type="podcast"):
     if search_type not in ["podcast", "podcastEpisode"]:
         print("Invalid search type")
         return None
     
-    podcast_list = []
-    
     # Query for podcast info using iTunes Search API
-    url = f'https://itunes.apple.com/search?term={urllib.parse.quote(search_term)}&media=podcast&entity={search_type}&limit={limit}'
+    payload = {
+        "term": requests.utils.quote(search_term),
+        "media": "podcast",
+        "entity": search_type,
+        "limit": limit,
+    }
+    url = "https://itunes.apple.com/search"
     try:
-        response = requests.get(url)
+        response = requests.get(url, params=payload)
         response.raise_for_status()
     except requests.RequestException:
         print(f"Failed for {search_term}")
@@ -32,14 +23,14 @@ def search_podcasts(search_term, search_type="podcastEpisode", limit=10):
     # Parse response
     try:
         data = response.json()
-        # Check result count
         results = data['results']
+        podcast_list = []
         for item in results:
             # Add RSS feed URL to list `podcast_feeds`
             podcast_list.append({
                 'feedUrl': item['feedUrl'] if 'feedUrl' in item else None,
-                'podcastName': item['collectionName'],
-                'podcastUrl': item['collectionViewUrl'],
+                'title': item['collectionName'],
+                'url': item['collectionViewUrl'],
                 'trackName': item['trackName'],
                 'trackUrl': item['trackViewUrl'],
             })
@@ -52,6 +43,3 @@ def search_podcasts(search_term, search_type="podcastEpisode", limit=10):
         return podcast_list
     
     return podcast_list
-
-if __name__=="__main__":
-    main()

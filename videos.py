@@ -1,6 +1,5 @@
 import os
 import requests
-import urllib.parse
 from dotenv import load_dotenv, find_dotenv
 
 # Get API key from .env
@@ -9,11 +8,10 @@ API_KEY = os.getenv('YOUTUBE_API_KEY')
      
 def search_youtube(search_term, limit=10, country="US", lang="en"):
     # Construct request URL
-    query = urllib.parse.quote(search_term)
     payload = {
         "part": "snippet",
         "type": "video",
-        "q": query,
+        "q": requests.utils.quote(search_term),
         "key": API_KEY,
         "maxResults": limit,
         "regionCode": country,

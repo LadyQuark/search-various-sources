@@ -13,7 +13,7 @@ def search_ted(search_term, limit=10):
     
     url = "https://ted-talk-api.p.rapidapi.com/talks"
     payload = {
-        "keyword":search_term
+        "keyword": requests.utils.quote(search_term),
     }
     headers = {
         "X-RapidAPI-Key": API_KEY,

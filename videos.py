@@ -10,7 +10,7 @@ API_KEY = os.getenv('YOUTUBE_API_KEY')
 def search_youtube(search_term, limit=10, country="US", lang="en"):
     # Construct request URL
     query = urllib.parse.quote(search_term)
-    params = {
+    payload = {
         "part": "snippet",
         "type": "video",
         "q": query,
@@ -22,7 +22,7 @@ def search_youtube(search_term, limit=10, country="US", lang="en"):
     url = "https://www.googleapis.com/youtube/v3/search"
     # Get response
     try:
-        response = requests.get(url, params=params)
+        response = requests.get(url, params=payload)
         response.raise_for_status()
     except requests.RequestException as e:
         print(f"Unable to search YouTube for {search_term}: {e}")

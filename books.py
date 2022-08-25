@@ -8,6 +8,13 @@ API_KEY = os.getenv('GOOGLEBOOKS_API_KEY')
      
 
 def search_googlebooks(search_term, limit=10):
+    """ 
+    Searches Google Books for given search term using Google API 
+    https://developers.google.com/books/docs/v1/using#auth
+    and outputs list of title and url, default count of 10
+    """
+
+    # Construct query
     payload = {
         "q": requests.utils.quote(search_term),
         "key": API_KEY,
@@ -23,8 +30,8 @@ def search_googlebooks(search_term, limit=10):
         print(f"Unable to search Google Books for {search_term}: {e}")
         return []
 
+    # Parse response
     data = response.json()
-
     items = data['items']
     results = []
     for item in items:

@@ -32,8 +32,6 @@ def get_youtube(payload):
                 'title': item['snippet']['title'],
                 'url': f"https://www.youtube.com/watch?v={item['id']['videoId']}",
             })
-        print(data.get('nextPageToken'))
-        print(data.get('pageInfo'))
         # Yield list of title and url
         yield results
         # Get token for next page if it exists, else stop
@@ -69,7 +67,33 @@ def search_youtube(search_term, limit=10, country="US", lang="en"):
         if len(results) >= limit:
             youtube_results.close()
     
-    print(f"Results: {len(results)}")
+    return results
+
+
+def search_youtube_ted(search_term, limit=10):
+    """ 
+    Searches TED channel on YouTube for given search term
+    and outputs list of title and url, default count of 10
+    """
+    #TODO: Check if country and language are valid
+
+    # Construct request URL
+    payload = {
+        "part": "snippet",
+        "type": "video",
+        "channelId": "UCAuUUnT6oDeKwE6v1NGQxug",
+        "q": requests.utils.quote(search_term),
+        "key": API_KEY,
+        "maxResults": min(limit, 50),
+    }
+
+    results = []
+    youtube_results = get_youtube(payload)
+    for result in youtube_results:
+        results.extend(result)
+        if len(results) >= limit:
+            youtube_results.close()
+    
     return results
 
     results = []

@@ -1,6 +1,6 @@
 import requests
 
-def search_podcasts(search_term, limit=10, search_type="podcast"):
+def search_podcasts(search_term, limit=10, search_type="podcastEpisode"):
     """ 
     Searches podcasts for given search term using iTunes Search API
     https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/Searching.html#//apple_ref/doc/uid/TP40017632-CH5-SW1
@@ -30,19 +30,18 @@ def search_podcasts(search_term, limit=10, search_type="podcast"):
     # Parse response
     try:
         data = response.json()
-        results = data['results']
-        podcast_list = []
-        for item in results:
-            podcast_list.append({
+        results = []
+        for item in data['results']:
+            
+            results.append({
                 'feedUrl': item['feedUrl'] if 'feedUrl' in item else None,
-                'title': item['collectionName'],
-                'url': item['collectionViewUrl'],
-                'trackName': item['trackName'],
-                'trackUrl': item['trackViewUrl'],
+                'podcastName': item['collectionName'],
+                'podcastUrl': item['collectionViewUrl'],
+                'title': item['trackName'],
+                'url': item['trackViewUrl'],
             })
-
     except Exception as e:
         print(f"Failed parsing {search_term}: {e}")
-        return podcast_list
+        return results
     
-    return podcast_list
+    return results

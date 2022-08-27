@@ -96,10 +96,3 @@ def search_youtube_ted(search_term, limit=10):
     
     return results
 
-    results = []
-    for item in items:
-        results.append({
-            'title': item['snippet']['title'],
-            'url': f"https://www.youtube.com/watch?v={item['id']['videoId']}",
-        })   
-    return results

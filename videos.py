@@ -1,10 +1,15 @@
 import os
+import logging
 import requests
+from urllib import parse
 from dotenv import load_dotenv, find_dotenv
+from transform_for_db import transform_youtube_item
 
 # Get API key from .env
 load_dotenv(find_dotenv())
 API_KEY = os.getenv('YOUTUBE_API_KEY')
+
+logger = logging.getLogger('videos-log')
 
 def get_youtube(payload):
     """ 
@@ -17,22 +22,24 @@ def get_youtube(payload):
     n = 1
     while True:
         # Make request
+        payload_str = parse.urlencode(payload, safe=':+')
         try:
-            print(f"Getting page {n}")
-            response = requests.get(url, params=payload)
+            response = requests.get(url, params=payload_str)
             response.raise_for_status()
         except requests.RequestException as e:
             print(f"Unable to search YouTube for {payload['q']}: {e}")
+            logger.warning(f"Unable to search YouTube for {payload['q']}: {e}")
             break
         # Parse response
         data = response.json()
-        results = []
-        for item in data['items']:
+        results = [item for item in data['items']]
+        """ for item in data['items']:
             results.append({
                 'title': item['snippet']['title'],
                 'url': f"https://www.youtube.com/watch?v={item['id']['videoId']}",
-            })
+            }) """
         # Yield list of title and url
+        print(f"{n} of {payload['q']}")
         yield results
         # Get token for next page if it exists, else stop
         if "nextPageToken" not in data: 
@@ -53,7 +60,7 @@ def search_youtube(search_term, limit=10, country="US", lang="en"):
     payload = {
         "part": "snippet",
         "type": "video",
-        "q": requests.utils.quote(search_term),
+        "q": search_term,
         "key": API_KEY,
         "maxResults": min(limit, 50),
         "regionCode": country,
@@ -68,6 +75,19 @@ def search_youtube(search_term, limit=10, country="US", lang="en"):
             youtube_results.close()
     
     return results
+
+
+def youtube_search_and_transform(search_term, limit=10):
+    search_results = search_youtube(search_term, limit)
+    db_items = []
+    for result in search_results:
+        try:
+            item = transform_youtube_item(result, search_term)
+        except Exception as e:
+            logger.warning(f"Transform error: {e}")
+        else:
+            db_items.append(item)
+    return db_items
 
 
 def search_youtube_ted(search_term, limit=10):

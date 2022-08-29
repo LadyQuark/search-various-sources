@@ -5,23 +5,38 @@ import json
 import os
 from pathlib import Path
 import re
+import logging
 
 RE_TAG = re.compile('<.*?>')
 RE_SPACE_TAG = re.compile('&nbsp;')
 RE_EOL_TAG = re.compile('</p>|(<br>)+|(<br/>)+')
+RE_AND = re.compile('\s+&\s+|\s*and\s|\s*,\s*', flags=re.I)
+
+logging.basicConfig(
+    filename="log/common.log",
+    filemode="a",
+    format="%(asctime)s %(name)s %(message)s",
+    level=logging.DEBUG)
+logger = logging.getLogger('common')
 
 def standard_date(pub_date):
+    """ Standardise date format """
     if pub_date:
         try:
+            pub_date = pub_date.replace("EDT", "-0400")
+            pub_date = pub_date.replace("EST", "-0500")
+            pub_date = pub_date.replace("PST", "-0800")
+            pub_date = pub_date.replace("PDT", "-0700")
             date = parse(pub_date)
-            # date = datetime.strptime(pub_date, '%a, %d %b %Y %H:%M:%S %z')
             pub_date = date.strftime("%Y-%m-%d")
         except ValueError:
+            logger.warning("Date Problem")
             return None
     
     return pub_date
 
 def standard_duration(audio_length):
+    """ Standardise time duration to HH:MM:SS format """
     if audio_length:
         try:
             time = datetime.strptime(audio_length, "%H:%M:%S")
@@ -35,13 +50,18 @@ def standard_duration(audio_length):
     
     return audio_length
     
-
 def timestamp_ms():
+    """ Get current time in UTC and convert to timestamp in millisecond precision"""
     utc_time = datetime.utcnow()
     return int(utc_time.timestamp() * 1000)
 
 
 def clean_html(raw_html):
+    """
+    Cleans HTML text by replacing with end-of-line, spaces and para tags
+    with appropriate alternatives. Removes all other HTML tags `<...>`
+    Unescapes remaining text.
+    """
     if not isinstance(raw_html, str):
         return raw_html
     
@@ -51,24 +71,33 @@ def clean_html(raw_html):
     clean_text = unescape(temp)
     return clean_text
 
-def create_json_file(folder, name, source_dict, failed):
+
+def split_by_and(input_string):
+    if not isinstance(input_string, str):
+        logger.info(f"split_by_and: Input is {type(input_string)}")
+        return None
+    list_of_strings = re.split(RE_AND, input_string)
+    return list_of_strings
+
+
+
+def create_json_file(folder, name, source_dict):
     # Convert `data_dict` to JSON formatted string
     json_string = json.dumps(source_dict, indent=4)
+    
+    # Create valid file name and create folder if needed
     try:
-        # Create valid file name
         filename = f"{get_valid_filename(name)}.json"
-        # Create folder if does not already exist
         Path(folder).mkdir(parents=True, exist_ok=True)
-        # Join folder and filename
         filepath = os.path.join(folder, filename)
     except Exception as e:
         print(e)
-        failed[name] = "Could not create valid file name or folder"
-        return
+        logger.warning(f"Folder: {folder} | Filename: {name} | Error: {e}")
+        return None
+    
     # Write to JSON file
     with open(filepath, 'w') as file:
             file.write(json_string)
-
 
 def get_valid_filename(name):
     """
@@ -87,18 +116,18 @@ def get_valid_filename(name):
         raise Exception("Could not derive file name from '%s'" % name)
     return s
 
-def load_existing_file(folder, name):
+
+def load_existing_json_file(folder, name):
+    # Create standardised file name and join path
     try:
-        # Create valid file name
         filename = f"{get_valid_filename(name)}.json"
-        # Join folder and filename
         filepath = os.path.join(folder, filename)
     except Exception as e:
         print(e)
         return None
+    # If json file exists, open and return dictionary
     else:
         if os.path.isfile(filepath):
-            print("File already exists")
             with open(filepath, "r") as f:
                 data_dict = json.load(f)
             return data_dict

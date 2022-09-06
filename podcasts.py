@@ -205,3 +205,119 @@ def match_title(rss_item, episode_title):
         all_titles.append(unescape(title))
     
     return episode_title.strip() in all_titles
+
+
+def itunes_lookup_podcast(podcastId, limit=200, sort="recent", offset=0):
+    """
+    Returns all episodes of podcast with ID `podcastId`
+    """
+
+    # Query for podcast info
+    payload = {
+        "id": podcastId,
+        "media": "podcast",
+        "entity": "podcastEpisode",
+        "sort": sort,
+        "limit": limit,
+        "offset": offset
+    }
+    # payload_str = parse.urlencode(payload, safe='+')
+    url = "https://itunes.apple.com/lookup"
+    try:
+        # print(f"Searching podcasts for {search_term}")
+        response = requests.get(url, params=payload)
+        response.raise_for_status()
+        print(response.url)
+    except requests.RequestException:
+        print(f"iTunes Lookup API: Failed for {podcastId}")
+        return []
+    
+    data = response.json()
+    return data['results']
+
+
+def save_all_episodes_podcast_and_transform(podcast_list, folder="ki_json"):
+    """
+    1. Gets ID of each podcast name in `podcast_list`
+    2. Gets RSS feed
+    3. Gets all episodes using iTunes Lookup API
+    4. Matches each RSS item with episodes from iTunes Lookup API
+    5. Transform all RSS items + corresponding iTunes link for episode
+    6. Saves transformed items in JSON file for each podcast
+    """
+    
+    failed = []
+    total = len(podcast_list)
+    for i, name in enumerate(podcast_list):
+        progress(i, total, name)
+        
+        # Search for podcast names
+        try:
+            results = search_podcasts(search_term=name, limit=5, search_type="podcast")
+            if len(results) < 1:
+                raise Exception
+            elif len(results) > 1:
+                print(f'\n{name} has more than 1 result')
+            podcast = results[0]
+        except Exception as e:
+            print(f'Failed to find for {name}: {e}')
+            failed[name] = f'Failed to find for {name}: {e}'
+            continue
+
+        # Get all episodes from RSS feed
+        rss = get_podcast_from_rss_feed(podcast)
+        
+        # Transform all episodes
+        episodes = []
+        if not rss:
+            failed[name] = f"Failed to get episodes for {name}{podcast['feedUrl']}: {e}"
+        
+        # Matches with 
+        itunes_episodes = itunes_lookup_podcast(podcast['podcastId'])
+        total_rss = len(rss)
+        count_matched = 0
+        for item in rss:
+            if itunes_episodes:
+                header = match_itunes_info(item, itunes_episodes)
+                if header['itunes_url']:
+                    count_matched += 1
+            else:
+                header = podcast
+            try:
+                episode = transform_rss_item(item, header, tag=None)
+            except Exception as e:
+                logger.warning(f"Transform: Failed for {podcast['podcastName']} - {podcast['title']}: {e}")
+            else:
+                episodes.append(episode)
+
+        print(f"\nMatched {count_matched} out of {total_rss} episodes")
+            
+        # Create json file for transformed episodes in folder
+        create_json_file(folder=folder, name=name, source_dict=episodes)
+            
+
+    if len(failed) > 0:
+        create_json_file(
+            folder=folder, name="failed", source_dict=failed)
+    
+
+def match_itunes_info(rss_item, itunes_episodes):
+
+    itunes_title = rss_item.get("itunes:title", rss_item.get("title", ""))
+    for episode in itunes_episodes:
+        if episode['wrapperType'] == "podcastEpisode":
+            if episode["trackName"] == itunes_title:
+                return {
+                    'title': itunes_title,
+                    'itunes_url': episode['trackViewUrl'],
+                    'podcastName': episode['collectionName'],
+                    'original': episode,
+                    }
+            
+    return {
+            'title': itunes_title,
+            'itunes_url': None,
+            'podcastName': episode['collectionName'],
+        }
+
+

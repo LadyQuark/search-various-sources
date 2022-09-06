@@ -1,57 +1,70 @@
+""" 
+Searches for terms in text file passed as an argument
+in Apple Podcasts, Scopus, YouTube, TED talks and Google Books
+saves JSON files for each type in folder `ki_json` 
+default number of results per type is 50
+"""
+
 import os
-from books import books_search_and_transform
-from common import create_json_file
+import argparse
+from common import create_json_file, get_search_list
 from podcasts import podcast_eps_search_and_transform
-from sys import argv, exit
-
+from research import research_search_and_transform
 from videos import youtube_search_and_transform
+from tedtalks import ted_youtube_search_and_transform
+from books import books_search_and_transform
+from sys import exit
+from progress import progress
 
-TOTAL_RESULTS = 100
+TOTAL_RESULTS = 50
 
 def main():
-    if len(argv) != 2:
-        exit(1)
-    filename = "search_terms/" + argv[1]
+    # Parse arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument("search_file", help="Path of the text file containing search terms")
+    parser.add_argument("-limit", help="Update only first 10 items", type=int, default=TOTAL_RESULTS)
+    args = parser.parse_args()
+    
+    # Get search terms from text file at `args.search_time`
     try:
-        search_list = get_search_list(filename)
+        search_list = get_search_list(args.search_file)
+        total = len(search_list)
     except Exception as e:
         print(e)
         exit(1)
-
-    n = 0
-    total = len(search_list)
-    results = []
-    for search_term in search_list:
-        n += 1
-        print(f"{n}/{total}")        
-        # search_results = podcast_eps_search_and_transform(search_term, TOTAL_RESULTS)
-        search_results = youtube_search_and_transform(search_term, TOTAL_RESULTS)
-        results.extend(search_results)
     
-    name = argv[1].replace(".txt", "")
-    create_json_file(
-        folder="ki_json/videos", name=name, source_dict=results
-    )
+    # Dict containing results of each category
+    results = {
+        'podcasts': [],
+        'research': [],
+        'videos': [],
+        'tedtalks': [],
+        'books': [],
+    }
+    # List of functions and the category of results they generate
+    search_functions = [
+        ('podcasts', podcast_eps_search_and_transform),
+        ('research', research_search_and_transform),
+        ('videos', youtube_search_and_transform),
+        ('tedtalks', ted_youtube_search_and_transform),
+        ('books', books_search_and_transform),
+    ]
+    # Loop through each function
+    for type, fn in search_functions:
+        # Loop through each search term
+        for i, search_term in enumerate(search_list):
+            progress(i+1, total, type)
+            # Get results
+            search_results = fn(search_term, args.limit)
+            # Add results to results list
+            results[type].extend(search_results)
+    # Create json file for each category of results
+    for type in results:
+        folder_name = "ki_json/" + os.path.basename(args.search_file).replace(".txt", "")
+        create_json_file(
+            folder=folder_name, name=type, source_dict=results[type]
+        )
 
-def get_search_list(filename):
-    # Check file ends with `.txt`
-    if not filename.endswith(".txt"):
-        raise Exception("File name should end in .txt")
-    
-    # Make path
-    try:
-        filepath = os.path.join(filename)
-    except Exception as e:
-        raise Exception(e)
-
-    # Check path exists
-    if not os.path.isfile(filepath):
-        raise Exception(f"Could not find file {filepath}")
-
-    with open(filepath, 'r') as f:
-        search_list = [line.strip() for line in f.readlines()]
-
-    return search_list
 
 if __name__=="__main__":
     main()

@@ -28,7 +28,7 @@ def get_googlebooks(payload):
         data = response.json()
         results = [item for item in data['items']]
         # Yield list of title and url
-        print(f"{startIndex} for {payload['q']}")
+        # print(f"{startIndex} for {payload['q']}")
         yield results
         # Increment startIndex, stop if startIndex is beyond total results
         startIndex += payload["maxResults"]

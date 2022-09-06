@@ -14,26 +14,48 @@ DEFAULT_VALUES = {
     'isDeleted': False,
 }
 
-def transform_rss_item(episode, header, tag=[]):
+def transform_rss_item(episode, header, tag=None):
     PODCAST = {
         'mediaType': "audio",
         'tags': "podcast",
     }
-    itunes_result = header['original']
+    itunes_result = header.get('original', {})
+    
+    # Check if description is available
+    if not episode.get('description') or episode['description'] == "":
+        raise Exception("No description found")  
     # Get authors from header if RSS item field is empty
     if episode.get('itunes:author') and episode['itunes:author'].strip() != "":
         authors = split_by_and(episode['itunes:author'].strip())
     else:
         authors = split_by_and(header.get('authors', ""))
+    
     # Get thumbnail from `itunes_result` is RSS item field is empty
+    thumbnail = None
     if 'itunes:image' in episode and '@href' in episode['itunes:image']:
         thumbnail = episode['itunes:image']['@href']
+    else:            
+        for choice in ["artworkUrl600", "artworkUrl160", "artworkUrl60"]:
+            if choice in itunes_result and itunes_result[choice] != None and itunes_result[choice] != "":
+                thumbnail = itunes_result[choice]
+                break        
+    duration = standard_duration(episode.get('itunes:duration'))
+    if not duration:
+        duration = standard_duration(itunes_result.get('trackTimeMillis'))
+    if tag:
+        tag = [tag.strip().lower()]
+    elif "tag" in header:
+        tag = [header.get('tag').strip().lower()]
     else:
-        if 'artworkUrl600' in itunes_result:
-            thumbnail = itunes_result['artworkUrl600']
-        else:
-            thumbnail = itunes_result.get('artworkUrl160', itunes_result.get('artworkUrl60', None))
-    
+        tag = []
+
+    if 'itunes_url' in header:
+        itunes_url = header['itunes_url']
+    elif itunes_result and 'trackViewUrl' in itunes_result:
+        itunes_url = itunes_result['trackViewUrl']
+    else:
+        itunes_url = None
+
     try:
         db_item = {
             'title': header.get('title'), 
@@ -45,12 +67,15 @@ def transform_rss_item(episode, header, tag=[]):
             'tags': PODCAST['tags'], 
             'type': DEFAULT_VALUES['type'], 
             'metadata': {
-                'audio_length': standard_duration(episode.get('itunes:duration')),
+                'audio_length': duration,
                 'audio_file': episode['enclosure'].get('@url') if 'enclosure' in episode and '@url' in episode['enclosure'] else None,
                 'podcast_title': header['podcastName'],
-                'url': header['url'],
+                'url': itunes_url if itunes_url else episode.get('link', itunes_result.get('collectionViewUrl')),
                 'transcript': episode.get('podcast:transcript', DEFAULT_VALUES['transcript']),
-                'tag': [header.get('tag').strip().lower()],
+                'tag': tag,
+                'additional_links': {
+                        'itunes_url': itunes_url
+                    }
                 }, 
             'created': {
                 '$date': {
@@ -60,13 +85,12 @@ def transform_rss_item(episode, header, tag=[]):
             'createdBy': DEFAULT_VALUES['createdBy'],
             'updated': DEFAULT_VALUES['updated'],
             'isDeleted': DEFAULT_VALUES['isDeleted'],
-            'original': [episode], 
+            'original': [episode, itunes_result] if itunes_result != {} else [episode], 
             'publishedDate': standard_date(episode.get('pubDate'))
         }
     except Exception as e:
-        print(e)
-        logger.info(f"Episode item: {episode} | Header: {header}")
-        raise Exception("Key Error / Type Error")
+        logger.warning(f"Episode item: {episode} | Header: {header}")
+        raise Exception(f"Key Error / Type Error: {e}")
     
     return db_item
 

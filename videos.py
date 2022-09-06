@@ -27,19 +27,13 @@ def get_youtube(payload):
             response = requests.get(url, params=payload_str)
             response.raise_for_status()
         except requests.RequestException as e:
-            print(f"Unable to search YouTube for {payload['q']}: {e}")
+            # print(f"Unable to search YouTube for {payload['q']}: {e}")
             logger.warning(f"Unable to search YouTube for {payload['q']}: {e}")
             break
         # Parse response
         data = response.json()
         results = [item for item in data['items']]
-        """ for item in data['items']:
-            results.append({
-                'title': item['snippet']['title'],
-                'url': f"https://www.youtube.com/watch?v={item['id']['videoId']}",
-            }) """
         # Yield list of title and url
-        print(f"{n} of {payload['q']}")
         yield results
         # Get token for next page if it exists, else stop
         if "nextPageToken" not in data: 
@@ -90,7 +84,7 @@ def youtube_search_and_transform(search_term, limit=10):
     return db_items
 
 
-def search_youtube_ted(search_term, limit=10):
+def search_youtube_channel(search_term, channelId, limit=10):
     """ 
     Searches TED channel on YouTube for given search term
     and outputs list of title and url, default count of 10
@@ -101,8 +95,8 @@ def search_youtube_ted(search_term, limit=10):
     payload = {
         "part": "snippet",
         "type": "video",
-        "channelId": "UCAuUUnT6oDeKwE6v1NGQxug",
-        "q": requests.utils.quote(search_term),
+        "channelId": channelId,
+        "q": search_term,
         "key": API_KEY,
         "maxResults": min(limit, 50),
     }

@@ -107,12 +107,13 @@ def split_by_and(input_string):
 
 
 def create_json_file(folder, name, source_dict):
+    
     # Convert `data_dict` to JSON formatted string
     json_string = json.dumps(source_dict, indent=4)
     
     # Create valid file name and create folder if needed
     try:
-        filename = f"{get_valid_filename(name)}.json"
+        filename = f"{get_valid_filename(name)}.json" if not name.endswith(".json") else get_valid_filename(name)
         Path(folder).mkdir(parents=True, exist_ok=True)
         filepath = os.path.join(folder, filename)
     except Exception as e:
@@ -142,18 +143,19 @@ def get_valid_filename(name):
     return s
 
 
-def load_existing_json_file(folder, name):
+def load_existing_json_file(folder, name, filepath=None):
     # Create standardised file name and join path
-    try:
-        filename = f"{get_valid_filename(name)}.json"
-        filepath = os.path.join(folder, filename)
-    except Exception as e:
-        print(e)
-        return None
+    if not filepath:
+        try:
+            filename = get_valid_filename(name)
+            filename += "" if filename.endswith(".json") else ".json"
+            filepath = os.path.join(folder, filename)
+        except Exception as e:
+            print(e)
+            return None
     # If json file exists, open and return dictionary
-    else:
-        if os.path.isfile(filepath):
-            with open(filepath, "r") as f:
-                data_dict = json.load(f)
-            return data_dict
+    if os.path.isfile(filepath):
+        with open(filepath, "r") as f:
+            data_dict = json.load(f)
+        return data_dict
     return None

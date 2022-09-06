@@ -76,15 +76,27 @@ def research_search_and_transform(search_term, limit=10):
     Search Scopus and return transformed results
     """
     search_results = search_scopus(search_term, limit)
+    
+    total = len(search_results)
     db_items = []
-    for result in search_results:
+    
+    for i, result in enumerate(search_results):
+        progress(i+1, total)
+        # Transform result
         try:
             item = transform_scopus_item(result, search_term)
         except Exception as e:
             logger.warning(f"Transform error: {e}")
             continue
         
-        db_items.append(item)
+        # Get abstract and append if available
+        if not 'prism:doi' in result['original'][0]:
+            continue
+        doi = result['original'][0]['prism:doi']
+        description = get_abstract(doi)
+        if description:
+            result['description'] = description.strip()
+            db_items.append(item)
 
     return db_items
 

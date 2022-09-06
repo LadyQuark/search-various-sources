@@ -75,23 +75,28 @@ def transform_podcast_result(episode, search_term):
         'mediaType': "audio",
         'tags': "podcast",
     }
-    if 'artworkUrl600' in episode:
-        thumbnail = episode['artworkUrl600']
-    else:
-        thumbnail = episode.get('artworkUrl160', episode.get('artworkUrl60', None))
+    # Check if description is available
+    if not episode.get('description') or episode['description'] == "":
+        raise Exception("No description found")  
+    # Get thumbnail
+    thumbnail = None
+    for choice in ["artworkUrl600", "artworkUrl160", "artworkUrl60"]:
+        if choice in episode and episode[choice] != None and episode[choice] != "":
+            thumbnail = episode[choice]
+            break
 
     try:
         db_item = {
             'title': episode.get('trackName'), 
             'thumbnail': thumbnail, 
-            'description': clean_html(episode.get('description', "")),
+            'description': clean_html(episode['description']),
             'permission': DEFAULT_VALUES['permission'], 
             'authors': None, 
             'mediaType': PODCAST['mediaType'], 
             'tags': PODCAST['tags'], 
             'type': DEFAULT_VALUES['type'], 
             'metadata': {
-                'audio_length': None,
+                'audio_length': standard_duration(episode.get('trackTimeMillis')),
                 'audio_file': episode.get('episodeUrl'),
                 'podcast_title': episode.get('collectionName'),
                 'url': episode.get('trackViewUrl'),

@@ -165,12 +165,15 @@ def transform_book_item(book_item, search_term):
     return db_item
 
 
-def transform_youtube_item(youtube_item, search_term):
+def transform_youtube_item(youtube_item, search_term, type="youtube"):
     YOUTUBE = {
         'mediaType': "video",
-        'tags': "youtube",
+        'tags': type,
     }
     snippet = youtube_item['snippet']
+    # Check if description is available
+    if not snippet.get('description') or snippet['description'] == "":
+        raise Exception("No description found")     
     # Choose from available thumbnails
     thumbnail_choices = ["high", "medium", "default"]
     thumbnail = None
@@ -182,9 +185,9 @@ def transform_youtube_item(youtube_item, search_term):
      
     try:
         db_item = {
-            'title': snippet['title'], 
+            'title': snippet.get('title'), 
             'thumbnail': thumbnail,
-            'description': snippet.get('description'), 
+            'description': clean_html(snippet.get('description', "")), 
             'permission': DEFAULT_VALUES['permission'], 
             'authors': snippet.get('channelTitle'), 
             'mediaType': YOUTUBE['mediaType'], 

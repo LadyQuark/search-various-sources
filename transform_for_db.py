@@ -206,8 +206,48 @@ def transform_youtube_item(youtube_item, search_term):
             'publishedDate': standard_date(snippet.get('publishedAt')),
         }
     except Exception as e:
-        pp = pprint.PrettyPrinter(depth=6)
-        pp.pprint(youtube_item)
+        print(e)
+        raise Exception(e)
+    
+    return db_item
+
+
+def transform_scopus_item(scopus_item, search_term):
+    RESEARCH = {
+        'mediaType': "article",
+        'tags': "research",
+    }
+    for link in scopus_item.get("link", []):
+        if link['@ref'] == "scopus":
+            url = link['@href']
+
+     
+    try:
+        db_item = {
+            'title': scopus_item['dc:title'], 
+            'thumbnail': None, #TODO
+            'description': None, #TODO
+            'permission': DEFAULT_VALUES['permission'], 
+            'authors': scopus_item.get('dc:creator'), 
+            'mediaType': RESEARCH['mediaType'], 
+            'tags': RESEARCH['tags'], 
+            'type': DEFAULT_VALUES['type'], 
+            'metadata': {
+                'url': url,
+                'tag': [search_term.strip().lower()],
+                }, 
+            'created': {
+                '$date': {
+                    '$numberLong': str(timestamp_ms())
+                    }
+                }, 
+            'createdBy': DEFAULT_VALUES['createdBy'],
+            'updated': DEFAULT_VALUES['updated'],
+            'isDeleted': DEFAULT_VALUES['isDeleted'],
+            'original': [scopus_item], 
+            'publishedDate': standard_date(scopus_item.get('prism:coverDate')),
+        }
+    except Exception as e:
         raise Exception(e)
     
     return db_item

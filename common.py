@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from dateutil.parser import parse
 from html import unescape
 import json
@@ -23,30 +23,55 @@ def standard_date(pub_date):
     """ Standardise date format """
     if pub_date:
         try:
-            pub_date = pub_date.replace("EDT", "-0400")
-            pub_date = pub_date.replace("EST", "-0500")
-            pub_date = pub_date.replace("PST", "-0800")
-            pub_date = pub_date.replace("PDT", "-0700")
-            date = parse(pub_date)
+            # Date format: YYYY -> YYYY:01:01
+            date = datetime.strptime(pub_date, "%Y")
             pub_date = date.strftime("%Y-%m-%d")
         except ValueError:
-            logger.warning("Date Problem")
-            return None
+            try:
+                # Check for timezones. #TODO: Account for more timezones
+                pub_date = pub_date.replace("EDT", "-0400")
+                pub_date = pub_date.replace("EST", "-0500")
+                pub_date = pub_date.replace("PST", "-0800")
+                pub_date = pub_date.replace("PDT", "-0700")
+                # Parse most known formats
+                date = parse(pub_date)
+                pub_date = date.strftime("%Y-%m-%d")
+            except ValueError:
+                logger.warning("Date Problem")
+                return None
     
     return pub_date
 
 def standard_duration(audio_length):
     """ Standardise time duration to HH:MM:SS format """
-    if audio_length:
+    if not audio_length:
+        return None
+    
+    # Duration represented as string
+    if isinstance(audio_length, str):
         try:
+            # Format: HH:MM:SS
             time = datetime.strptime(audio_length, "%H:%M:%S")
         except ValueError:
             try:
+                # Format: MM:SS
                 time = datetime.strptime(audio_length, "%M:%S")
             except ValueError:
-                return None
+                # Format: ms as string
+                try:
+                    audio_length = int(audio_length)
+                except ValueError:
+                    return None
+                else:
+                    return standard_duration(audio_length)
 
         audio_length = time.strftime("%H:%M:%S")
+    
+    # Duration in milliseconds represented as int
+    elif isinstance(audio_length, int):
+        # Convert to timedelta string and run through function again
+        duration = timedelta(milliseconds=audio_length)
+        return standard_duration(str(duration))
     
     return audio_length
     

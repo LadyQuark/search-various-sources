@@ -159,3 +159,46 @@ def load_existing_json_file(folder, name, filepath=None):
             data_dict = json.load(f)
         return data_dict
     return None
+
+def path_exists_or_creatable(filepath):
+    dirname = os.path.dirname(filepath) or os.getcwd()
+    return os.path.exists(filepath) or os.access(dirname, os.W_OK)
+
+def valid_source_destination(source, destination, file_ext):
+    # Check source file exists
+    if not os.path.isfile(source) or not os.path.basename(source).endswith(file_ext):
+        print("Source file is not valid")
+        return False
+    # Check if destination pathname exists or can be created:
+    if not path_exists_or_creatable(destination):
+        print(f"Destination is not valid {destination}")
+        return False
+    
+    destination_basename = os.path.basename(destination)
+    if destination_basename.endswith(".json") and os.path.isfile(destination):
+        rewrite = input(f"File {destination_basename} already exists. Rewrite this file? (Y/N): ")
+        if rewrite.casefold() not in ["y", "yes"]:
+            return False
+
+    return True
+
+
+def get_search_list(filename):
+    # Check file ends with `.txt`
+    if not filename.endswith(".txt"):
+        raise Exception("File name should end in .txt")
+    
+    # Make path
+    try:
+        filepath = os.path.join(filename)
+    except Exception as e:
+        raise Exception(e)
+
+    # Check path exists
+    if not os.path.isfile(filepath):
+        raise Exception(f"Could not find file {filepath}")
+
+    with open(filepath, 'r') as f:
+        search_list = [line.strip() for line in f.readlines()]
+
+    return search_list    

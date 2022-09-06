@@ -126,28 +126,51 @@ def get_abstract(doi):
     else:
         return abstract    
 
-    # Get response
+
+
+
+
+
+
+
+
+
+def get_scopus_abstract(scopus_id):
+    payload = {
+        "apiKey": API_KEY,
+        "httpAccept": "application/json",
+        "field": "prism:coverDate"
+    }
+    url = f"https://api.elsevier.com/content/abstract/scopus_id/{scopus_id}"
+    payload_str = parse.urlencode(payload, safe=':')
     try:
-        response = requests.get(url)
+        response = requests.get(url, params=payload_str)
         response.raise_for_status()
     except requests.RequestException as e:
-        print(f"Unable to search Scopus for {search_term}: {e}")
-        return []
-
-    # Parse Response
+        print(f"Unable to search absctract for Scopus ID: {scopus_id}: {e}")
+        logger.warning(f"Unable to search absctract for Scopus ID: {scopus_id}: {e}")
+      
+    # Parse response
     data = response.json()
-    entries = data['search-results']['entry']
-    results = []
-    for entry in entries:
-        # Get URL for scopus
-        url = None
-        for link in entry.get("link", []):
-            if link['@ref'] == "scopus":
-                url = link['@href']
-        # Append to results
-        results.append({
-            'title': entry.get('dc:title'),
-            'url': url,
-        })
+    return data
 
-    return results
+def get_sciencedirect(search_term):
+    payload = {
+        "query": search_term,
+    }
+    header = {
+        "Accept": "application/json",
+        "X-ELS-APIKey": API_KEY,
+
+    }
+    url = f"https://api.elsevier.com/content/search/sciencedirect"
+    try:
+        response = requests.get(url, headers=header, params=payload)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        # print(f"Unable to search absctract for Scopus ID: {payload['query']}: {e}")
+        logger.warning(f"Unable to search absctract for Scopus ID: {payload['query']}: {e}")
+      
+    # Parse response
+    data = response.json()
+    return data

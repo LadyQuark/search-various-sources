@@ -119,10 +119,13 @@ def transform_podcast_result(episode, search_term):
 
 def transform_book_item(book_item, search_term):
     BOOKS = {
-        'mediaType': "text-books",
+        'mediaType': "books",
         'tags': "books",
     }
     volume = book_item['volumeInfo']
+    # Check if description is available
+    if not volume.get('description') or volume['description'] == "":
+        raise Exception("No description found")     
     # Choose from available thumbnails
     thumbnail_choices = ["extraLarge", "large", "medium",  "small", "thumbnail", "smallThumbnail"]
     thumbnail = None

@@ -90,12 +90,12 @@ def research_search_and_transform(search_term, limit=10):
             continue
         
         # Get abstract and append if available
-        if not 'prism:doi' in result['original'][0]:
+        if not 'prism:doi' in item['original'][0]:
             continue
-        doi = result['original'][0]['prism:doi']
+        doi = item['original'][0]['prism:doi']
         description = get_abstract(doi)
         if description:
-            result['description'] = description.strip()
+            item['description'] = description.strip()
             db_items.append(item)
 
     return db_items

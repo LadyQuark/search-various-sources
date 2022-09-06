@@ -12,6 +12,10 @@ API_KEY = os.getenv('GOOGLEBOOKS_API_KEY')
 logger = logging.getLogger('book-log')
 
 def get_googlebooks(payload):
+    """
+    Generator to make request to Google Books API, yields next page of results
+    """
+
     url = "https://www.googleapis.com/books/v1/volumes"
     startIndex = 0
     while True:

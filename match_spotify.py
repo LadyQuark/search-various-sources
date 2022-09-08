@@ -93,7 +93,7 @@ def main():
 
 def find_spotify_episode(title, podcast, verbose=False):
     """ 
-    Searches Spotify for podcast with given title and podcast name
+    Searches Spotify for podcast episode with given title and podcast name
     accounts for some variation in titles and podcast names
     returns matching episode object from Spotify
     """
@@ -139,7 +139,7 @@ def matching_episode_ids(title, podcast, verbose=False):
         # Restrict query to 100 characters by removing full words
         while len(query) > 100:
             query = query.rsplit(" ", maxsplit=1)[0]
-
+        # Get results
         results = sp.search(q=query, type="episode", limit=10, offset=0, market="US")
     except spotipy.SpotifyException as e:
         print(e.msg, e.reason)
@@ -147,10 +147,9 @@ def matching_episode_ids(title, podcast, verbose=False):
             raise Exception("Spotify Quota Exceeded")
         return []
     
+    # Loop through list and make list of possible matches
     matches = []
-
     for episode in results['episodes']['items']:
-        
         spotify_title = episode['name']
         if match_title(title, podcast, spotify_title):
             matches.append(episode['id'])
@@ -161,7 +160,11 @@ def matching_episode_ids(title, podcast, verbose=False):
 
     return matches
 
+
 def get_episodes(ids):
+    """ 
+    Get episode objects from Spotify for each id
+    """
     try:
         results = sp.episodes(ids, market="US")
     except spotipy.SpotifyException as e:
@@ -174,16 +177,15 @@ def get_episodes(ids):
 
 
 def match_title(title, podcast, spotify_title):
+    """ Match episode titles accounting for subtle differences """
+
     # Normalize by lowering case and removing punctuation
     title = title.strip().casefold()
     title = title.translate(str.maketrans('', '', string.punctuation))
-    # print(title)
     spotify_title = spotify_title.strip().casefold()
     spotify_title = spotify_title.translate(str.maketrans('', '', string.punctuation))
-    # print(spotify_title)
     podcast = podcast.strip().casefold()
     podcast = podcast.translate(str.maketrans('', '', string.punctuation))
-    # print(podcast)
     
     # 1. Spotify title is the same as item title
     if title == spotify_title:
@@ -192,21 +194,24 @@ def match_title(title, podcast, spotify_title):
     elif title in spotify_title and podcast in spotify_title:
         return True
     
+    # Remove episode numbers from titles
     spotify_title_no_ep = re.sub(RE_EP, "", spotify_title).strip()
     title_no_ep = re.sub(RE_EP, "", title).strip()
     # 3. After removing episode number, Spotify title is the same as item title
     if title == spotify_title_no_ep:
         return True
-    # 4. After removing episode number,  Spotify title includes both title of epsiode and name of podcast 
+    # 4. After removing episode number, Spotify title includes both title of epsiode and name of podcast 
     elif title_no_ep in spotify_title_no_ep and podcast in spotify_title_no_ep:
         return True
-    # 
-    # if spotify_title.endswith(title):
-    #     return True
+
 
     return False
 
+
 def match_podcast(podcast, spotify_podcast, publisher=None):
+    """ Match podcast names accounting for subtle differences """
+    
+    # Normalize by lowering case
     podcast = podcast.strip().casefold()
     spotify_podcast = spotify_podcast.strip().casefold()
     publisher = publisher.strip().casefold() if publisher else None
@@ -214,21 +219,21 @@ def match_podcast(podcast, spotify_podcast, publisher=None):
     # 1. Spotify's podcast name is same as podcast name
     if podcast == spotify_podcast:
         return True
-
+    # 2. Podcast name includes Spotify's podcast name and publisher
     if publisher and (spotify_podcast in podcast and publisher in podcast):
         return True
-
+    # 3. After removing punctuation, Spotify's podcast name is same as podcast name
     if podcast.translate(str.maketrans('', '', string.punctuation)) == spotify_podcast.translate(str.maketrans('', '', string.punctuation)):
         return True
 
-    # 2. After removing right-most tagline indicated by " - " 
+    # 4. After removing right-most tagline indicated by " - " 
     #    Spotify's podcast name is same as podcast name
     podcast_no_tag = podcast.rsplit(" - ", maxsplit=1)[0]
     spotify_podcast_no_tag = spotify_podcast.rsplit(" - ", maxsplit=1)[0]
     if podcast_no_tag == spotify_podcast_no_tag:
         return True
     
-    # 2. After removing all keywords indicated by " | " 
+    # 5. After removing all keywords indicated by " | " 
     #    Spotify's podcast name is same as podcast name
     podcast_no_keys = re.split(RE_NO_KEYWORDS, podcast)[0]
     spotify_podcast_no_keys = re.split(RE_NO_KEYWORDS, spotify_podcast)[0]
@@ -239,6 +244,10 @@ def match_podcast(podcast, spotify_podcast, publisher=None):
 
 
 def search_show(podcast_name, verbose=False):
+    """ 
+    Searches Spotify for podcast with given podcast name,
+    returns results
+    """
     try:
         query = podcast_name
         while len(query) > 100:

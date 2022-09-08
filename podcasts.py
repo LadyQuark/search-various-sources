@@ -5,7 +5,7 @@ import xmltodict
 import pprint
 from common import create_json_file, load_existing_json_file
 from transform_for_db import transform_podcast_result, transform_rss_item
-from urllib import parse
+from match_spotify import find_spotify_episode
 from progress import progress
 
 logger = logging.getLogger('podcast-log')
@@ -182,16 +182,29 @@ def podcast_eps_search_and_transform(search_term, limit=10):
     # 2. For each result, get more info and transform into database dict
     for i, result in enumerate(search_results):
         progress(i, total, search_term)
+        
         # 2a. Get info from RSS feed
-        item = get_episode_from_rss_feed(result)
-        if item:
-            db_items.append(item)
+        item = get_episode_from_rss_feed(result)       
         # 2b. Alternatively, get info from search result itself
-        else:
+        if not item:
             item = get_info_from_search_result(result['original'], result['tag'])
-            if item:
-                db_items.append(item)
-                
+        
+        if item:
+            # 3. Search in Spotify and add URL
+            try:
+                spotify_episode = find_spotify_episode(
+                    title=item['title'], podcast=item['metadata']['podcast_title']
+                    )
+            except Exception as e:
+                pass
+            else:
+                if spotify_episode:
+                    item['metadata']['additional_links']['spotify_url'] = spotify_episode['external_urls']['spotify']
+                    item['original'].append(spotify_episode)
+            
+            # 4. Collect transformed item
+            db_items.append(item)      
+    
     return db_items
 
 

@@ -39,9 +39,8 @@ def main():
     # Get source JSON and initialize variables
     podcast_episodes = load_existing_json_file(None, None, args.source)
     total = len(podcast_episodes)
-    if args.limit > 0 and args.limit <= total:
-        # podcast_episodes = podcast_episodes[:args.limit]
-        podcast_episodes = random.choices(podcast_episodes, k=3)
+    if args.limit > 0 and args.limit < total:
+        podcast_episodes = random.choices(podcast_episodes, k=args.limit)
         total = args.limit
     count_untouched = 0
     count_updated = 0
@@ -55,59 +54,30 @@ def main():
 
         title = item['title']
         podcast = item['metadata']['podcast_title']
+        links = item['metadata'].setdefault('additional_links', {})
 
-        # Check if field already exists
-        if links := item['metadata'].get('additional_links'):
-            # links.setdefault('itunes_url', item['metadata']['url'])
-            if links.get('spotify_url') and links['spotify_url'] != "":
-                # updated_results.append(item)
-                count_untouched += 1
-                print("No need to update")
-                continue
-
-
-        matched = False
+        # If field already exists, move to next item
+        if links.get('spotify_url') and links['spotify_url'] != "":
+            count_untouched += 1
+            if args.verbose: print("No need to update")
+            continue
         
-        if args.verbose:
-            action_str = f"Searching for: {title} | {podcast}"
-            print("\n", action_str)
-            print("-" * len(action_str))
+        # Find URL and update
+        try:
+            episode = find_spotify_episode(title, podcast, args.verbose)
+        except Exception:
+            # Stop loop and save results so far
+            failed.append(item) 
+            break
+        if episode:
+            url = episode['external_urls']['spotify']                  
+            links.setdefault('spotify_url', url)
+            item['original'].append(episode)
+            count_updated += 1
+            break
         
-        # Get full info of episodes with matching titles
-        matching_ids = matching_episode_ids(title, podcast, args.verbose)
-        matching_episodes = get_episodes(matching_ids) if len(matching_ids) > 0 else []
-        
-        # For each matching episode, check podcast name
-        for episode in matching_episodes:
-            url = episode['external_urls']['spotify']
-            title_spotify = episode['name']
-            podcast_spotify = episode['show']['name']
-            publisher = episode['show']['publisher']
-
-            if args.verbose:
-                print(title_spotify, " | ", podcast_spotify)
-
-            # If podcast name matches, update item and stop checking for this item
-            if match_podcast(podcast, podcast_spotify, publisher):
-                if args.verbose:
-                    print("Found it!")
-                
-                matched = True
-                links = item['metadata'].setdefault('additional_links', {})
-                # links.setdefault('itunes_url', item['metadata']['url'])
-                links.setdefault('spotify_url', url)
-                item['original'].append(episode)
-                count_updated += 1
-                # updated_results.append(item)
-                break
-        
-        if not matched:
-            # item['metadata'].setdefault(
-            #         'additional_links', {'itunes_url': item['metadata']['url']})
-            failed.append(item)
-            
-            if args.verbose:
-                print("No matches found!")
+        failed.append(item) 
+        if args.verbose: print("No matches found!")
 
 
     # Create JSON files
@@ -121,18 +91,60 @@ def main():
     create_json_file(folder, "failed", failed)
 
 
+def find_spotify_episode(title, podcast, verbose=False):
+    """ 
+    Searches Spotify for podcast with given title and podcast name
+    accounts for some variation in titles and podcast names
+    returns matching episode object from Spotify
+    """
+    if verbose:
+        action_str = f"Searching for: {title} | {podcast}"
+        print("\n", action_str)
+        print("-" * len(action_str))
+    
+    # Get full info of episodes with matching titles
+    try:
+        matching_ids = matching_episode_ids(title, podcast, verbose)
+        matching_episodes = get_episodes(matching_ids) if len(matching_ids) > 0 else []
+    except Exception as e:
+        raise Exception(e)
+    
+    # For each matching episode, check podcast name
+    for episode in matching_episodes:
+        # url = episode['external_urls']['spotify']
+        title_spotify = episode['name']
+        podcast_spotify = episode['show']['name']
+        publisher = episode['show']['publisher']
+
+        if verbose: print(title_spotify, " | ", podcast_spotify)
+
+        # If podcast name matches, update item and stop checking for this item
+        if match_podcast(podcast, podcast_spotify, publisher):
+            if verbose: print("Found it!")
+            return episode
+    
+    return None
 
 
 def matching_episode_ids(title, podcast, verbose=False):
+    """ 
+    Searches Spotify for podcast with given title and podcast name,
+    accounts for some variation in episode title,
+    returns list of Spotify IDs of episodes that are possible matches
+    """
+
     try:
+        # Better results when searching for both episode and podcast names
         query = title + " " + podcast
+        # Restrict query to 100 characters by removing full words
         while len(query) > 100:
             query = query.rsplit(" ", maxsplit=1)[0]
+
         results = sp.search(q=query, type="episode", limit=10, offset=0, market="US")
     except spotipy.SpotifyException as e:
         print(e.msg, e.reason)
         if e.http_status == 429:
-            exit(1)
+            raise Exception("Spotify Quota Exceeded")
         return []
     
     matches = []
@@ -155,7 +167,7 @@ def get_episodes(ids):
     except spotipy.SpotifyException as e:
         print(e.msg)
         if e.http_status == 429:
-            exit(1)
+            raise Exception("Spotify Quota Exceeded")
         return []
     else:
         return results['episodes']
@@ -235,7 +247,7 @@ def search_show(podcast_name, verbose=False):
     except spotipy.SpotifyException as e:
         print(e.msg, e.reason)
         if e.http_status == 429:
-            exit(1)
+            raise Exception("Spotify Quota Exceeded")
         return []
     
     return results['shows']['items']

@@ -10,9 +10,9 @@ from progress import progress
 
 logger = logging.getLogger('podcast-log')
 pp = pprint.PrettyPrinter(depth=6)
+attributes = ['titleTerm', 'languageTerm', 'authorTerm', 'genreIndex', 'artistTerm', 'ratingIndex', 'keywordsTerm', 'descriptionTerm']
 
-
-def search_podcasts(search_term, limit=10, search_type="podcastEpisode"):
+def search_podcasts(search_term, limit=10, search_type="podcastEpisode", attribute=None):
     """ 
     Searches podcasts for given search term using iTunes Search API
     https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/Searching.html#//apple_ref/doc/uid/TP40017632-CH5-SW1
@@ -30,15 +30,28 @@ def search_podcasts(search_term, limit=10, search_type="podcastEpisode"):
         "entity": search_type,
         "limit": limit,
     }
-    payload_str = parse.urlencode(payload, safe=':+')
+    if attribute:
+        if attribute in attributes:
+            payload['attribute'] = attribute
+    # payload_str = parse.urlencode(payload, safe=':+')
     url = "https://itunes.apple.com/search"
     try:
         # print(f"Searching podcasts for {search_term}")
-        response = requests.get(url, params=payload_str)
+        response = requests.get(url, params=payload)
         response.raise_for_status()
-    except requests.RequestException:
-        # print(f"Failed for {search_term}")
-        logger.warning(f"iTunes Search API: Failed search for {search_term}")
+    except requests.exceptions.ConnectionError as e:
+        if e.errno == -2:
+            logger.warning("Too many retries")
+            raise Exception("Too many retries")
+        raise Exception(e)
+    except requests.exceptions.HTTPError as e:
+        if response.status_code == 403:
+            logger.warning("Quota exceeded for iTunes Search API")
+            raise Exception("Quota exceeded for iTunes Search API")
+        logger.warning(f"iTunes Search API: Failed search for {search_term}: {e}")
+        return []
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"iTunes Search API: Failed search for {search_term}: {e}")
         return []
     
     # Parse response

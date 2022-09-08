@@ -74,7 +74,8 @@ def transform_rss_item(episode, header, tag=None):
                 'transcript': episode.get('podcast:transcript', DEFAULT_VALUES['transcript']),
                 'tag': tag,
                 'additional_links': {
-                        'itunes_url': itunes_url
+                        'itunes_url': itunes_url,
+                        'spotify_url': None 
                     }
                 }, 
             'created': {
@@ -125,7 +126,11 @@ def transform_podcast_result(episode, search_term):
                 'podcast_title': episode.get('collectionName'),
                 'url': episode.get('trackViewUrl'),
                 'transcript': None,
-                'tag': [search_term.strip().lower()]
+                'tag': [search_term.strip().lower()],
+                'additional_links': {
+                        'itunes_url': episode.get('trackViewUrl'),
+                        'spotify_url': None 
+                    }
                 }, 
             'created': {
                 '$date': {

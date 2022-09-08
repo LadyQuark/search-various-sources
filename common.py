@@ -113,7 +113,8 @@ def create_json_file(folder, name, source_dict):
     
     # Create valid file name and create folder if needed
     try:
-        filename = f"{get_valid_filename(name)}.json" if not name.endswith(".json") else get_valid_filename(name)
+        filename = get_valid_filename(name)
+        filename = filename + ".json" if not filename.endswith(".json") else filename
         Path(folder).mkdir(parents=True, exist_ok=True)
         filepath = os.path.join(folder, filename)
     except Exception as e:

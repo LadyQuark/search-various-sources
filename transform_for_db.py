@@ -168,6 +168,8 @@ def transform_book_item(book_item, search_term):
             if choice in volume['imageLinks']:
                 thumbnail = volume['imageLinks'][choice]
                 break
+    
+    authors = [a.strip() for a in volume.get('authors', []) if a.strip() != ""]
      
     try:
         db_item = {
@@ -175,7 +177,7 @@ def transform_book_item(book_item, search_term):
             'thumbnail': thumbnail,
             'description': volume.get('description'), 
             'permission': DEFAULT_VALUES['permission'], 
-            'authors': volume.get('authors'), 
+            'authors': authors, 
             'mediaType': BOOKS['mediaType'], 
             'tags': BOOKS['tags'], 
             'type': DEFAULT_VALUES['type'], 

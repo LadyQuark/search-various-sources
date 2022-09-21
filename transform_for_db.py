@@ -180,7 +180,7 @@ def transform_book_item(book_item, search_term):
             'tags': BOOKS['tags'], 
             'type': DEFAULT_VALUES['type'], 
             'metadata': {
-                'url': book_item['selfLink'],
+                'url': volume['previewLink'],
                 'tag': [search_term.strip().lower()],
                 }, 
             'created': {

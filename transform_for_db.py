@@ -58,7 +58,7 @@ def transform_rss_item(episode, header, tag=None):
 
     try:
         db_item = {
-            'title': header.get('title'), 
+            'title': episode.get('itunes:title', episode.get('title')), 
             'thumbnail': thumbnail,
             'description': clean_html(episode.get('description', "")), 
             'permission': DEFAULT_VALUES['permission'], 

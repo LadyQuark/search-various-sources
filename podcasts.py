@@ -260,7 +260,6 @@ def itunes_lookup_podcast(podcastId, limit=200, sort="recent", offset=0):
         # print(f"Searching podcasts for {search_term}")
         response = requests.get(url, params=payload)
         response.raise_for_status()
-        print(response.url)
     except requests.RequestException:
         print(f"iTunes Lookup API: Failed for {podcastId}")
         return []
@@ -269,7 +268,7 @@ def itunes_lookup_podcast(podcastId, limit=200, sort="recent", offset=0):
     return data['results']
 
 
-def save_all_episodes_podcast_and_transform(podcast_list, folder="ki_json"):
+def save_all_episodes_podcast_and_transform(podcast_list, folder="ki_json", verbose=False):
     """
     1. Gets ID of each podcast name in `podcast_list`
     2. Gets RSS feed
@@ -279,10 +278,10 @@ def save_all_episodes_podcast_and_transform(podcast_list, folder="ki_json"):
     6. Saves transformed items in JSON file for each podcast
     """
     
-    failed = []
+    failed = {}
     total = len(podcast_list)
     for i, name in enumerate(podcast_list):
-        progress(i, total, name)
+        # progress(i, total, name)
         
         # Search for podcast names
         try:
@@ -290,10 +289,10 @@ def save_all_episodes_podcast_and_transform(podcast_list, folder="ki_json"):
             if len(results) < 1:
                 raise Exception
             elif len(results) > 1:
-                print(f'\n{name} has more than 1 result')
+                if verbose: print(f'\n{name} has more than 1 result')
             podcast = results[0]
         except Exception as e:
-            print(f'Failed to find for {name}: {e}')
+            if verbose: print(f'Failed to find for {name}: {e}')
             failed[name] = f'Failed to find for {name}: {e}'
             continue
 
@@ -303,28 +302,62 @@ def save_all_episodes_podcast_and_transform(podcast_list, folder="ki_json"):
         # Transform all episodes
         episodes = []
         if not rss:
-            failed[name] = f"Failed to get episodes for {name}{podcast['feedUrl']}: {e}"
-        
-        # Matches with 
-        itunes_episodes = itunes_lookup_podcast(podcast['podcastId'])
-        total_rss = len(rss)
-        count_matched = 0
-        for item in rss:
-            if itunes_episodes:
-                header = match_itunes_info(item, itunes_episodes)
-                if header['itunes_url']:
-                    count_matched += 1
-            else:
-                header = podcast
-            try:
-                episode = transform_rss_item(item, header, tag=None)
-            except Exception as e:
-                logger.warning(f"Transform: Failed for {podcast['podcastName']} - {podcast['title']}: {e}")
-            else:
+            failed[name] = f"Failed to get episodes for {name}{podcast['feedUrl']} from RSS"
+            itunes_episodes = itunes_lookup_podcast(podcast['podcastId'])
+            # create_json_file(folder="test", name=name, source_dict=itunes_episodes)
+            for item in itunes_episodes:
+                if item["wrapperType"] != "podcastEpisode":
+                    print("Not podcast episode")
+                    continue
+                episode = get_info_from_search_result(item, search_term=None)
+                if episode:
+                    episodes.append(episode)
+            
+
+        else:
+            # Matches with 
+            itunes_episodes = itunes_lookup_podcast(podcast['podcastId'])
+            total_rss = len(rss)
+            count_matched = 0
+            for item in rss:
+                # Set header to the matching episode details from iTunes 
+                if itunes_episodes:
+                    header = match_itunes_info(item, itunes_episodes)
+                    if header['itunes_url']:
+                        count_matched += 1
+                # if no match is found, set podcast search result as header
+                else:
+                    header = podcast
+                
+                # Transform item given info available
+                try:
+                    episode = transform_rss_item(item, header, tag=None)
+                except Exception as e:
+                    logger.warning(f"Transform: Failed for {podcast['podcastName']} - {podcast['title']}: {e}")
+                    continue
+                
+                # Search in Spotify and add URL
+                """ 
+                try:
+                    spotify_episode = find_spotify_episode(
+                        title=episode['title'], podcast=episode['metadata']['podcast_title']
+                        )
+                except Exception as e:
+                    pass
+                else:
+                    if spotify_episode:
+                        episode['metadata']['additional_links']['spotify_url'] = spotify_episode['external_urls']['spotify']
+                        episode['original'].append(spotify_episode) 
+                """
+                
                 episodes.append(episode)
 
-        print(f"\nMatched {count_matched} out of {total_rss} episodes")
-            
+            print(f"\nMatched {count_matched} out of {total_rss} episodes")
+
+            if count_matched < total_rss:
+                pass
+        
+        
         # Create json file for transformed episodes in folder
         create_json_file(folder=folder, name=name, source_dict=episodes)
             

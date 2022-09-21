@@ -142,6 +142,10 @@ def get_episode_from_rss_feed(search_result):
     items = get_podcast_from_rss_feed(search_result)
     # Loop through each episode item to find the matching episode
     episode = None
+    
+    if not items:
+        return None
+
     for item in items:
         if match_title(item, search_result['title']):
             episode = item

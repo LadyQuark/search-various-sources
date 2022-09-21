@@ -11,7 +11,7 @@ API_KEY = os.getenv('YOUTUBE_API_KEY')
 
 logger = logging.getLogger('videos-log')
 
-def get_youtube(payload):
+def get_youtube(payload, verbose=False):
     """ 
     Generator that makes GET request to YouTube Data API v3 with given payload
     https://developers.google.com/youtube/v3/docs/search/list
@@ -24,10 +24,11 @@ def get_youtube(payload):
         # Make request
         payload_str = parse.urlencode(payload, safe=':+')
         try:
+            if verbose: print("Getting page ", n)
             response = requests.get(url, params=payload_str)
             response.raise_for_status()
         except requests.RequestException as e:
-            # print(f"Unable to search YouTube for {payload['q']}: {e}")
+            if verbose: print(f"Unable to search YouTube for {payload['q']}: {e}")
             logger.warning(f"Unable to search YouTube for {payload['q']}: {e}")
             break
         # Parse response
@@ -84,7 +85,7 @@ def youtube_search_and_transform(search_term, limit=10):
     return db_items
 
 
-def search_youtube_channel(search_term, channelId, limit=10):
+def search_youtube_channel(search_term, channelId, limit=10, order="relevance", verbose=False):
     """ 
     Searches TED channel on YouTube for given search term
     and outputs list of title and url, default count of 10
@@ -98,14 +99,15 @@ def search_youtube_channel(search_term, channelId, limit=10):
         "channelId": channelId,
         "q": search_term,
         "key": API_KEY,
-        "maxResults": min(limit, 50),
+        "maxResults": min(limit, 50) if limit else 50,
+        "order": order
     }
 
     results = []
-    youtube_results = get_youtube(payload)
+    youtube_results = get_youtube(payload, verbose)
     for result in youtube_results:
         results.extend(result)
-        if len(results) >= limit:
+        if limit and len(results) >= limit:
             youtube_results.close()
     
     return results

@@ -165,6 +165,7 @@ def path_exists_or_creatable(filepath):
     dirname = os.path.dirname(filepath) or os.getcwd()
     return os.path.exists(filepath) or os.access(dirname, os.W_OK)
 
+
 def valid_source_destination(source, destination, file_ext):
     # Check source file exists
     if not os.path.isfile(source) or not os.path.basename(source).endswith(file_ext):
@@ -178,10 +179,41 @@ def valid_source_destination(source, destination, file_ext):
     destination_basename = os.path.basename(destination)
     if destination_basename.endswith(".json") and os.path.isfile(destination):
         rewrite = input(f"File {destination_basename} already exists. Rewrite this file? (Y/N): ")
-        if rewrite.casefold() not in ["y", "yes"]:
-            return False
+        return rewrite.strip().lower() in ["y", "yes"]
 
     return True
+
+def valid_existing_file(source, file_ext):
+    """ Check if file exists and has given file extension """
+    if os.path.isfile(source) and os.path.basename(source).endswith(file_ext):
+        return True
+    print(f"File {source} is not valid")
+    return False
+
+def valid_destination(destination, file_ext=".json"):
+    try:
+        _, ext = os.path.splitext(destination)
+        
+        # If destination is a file and file extension does not match
+        if ext != "" and ext != file_ext:
+            print(f"Invalid file type: '{ext}'. Expected '{file_ext}'")
+            return False
+        
+        # If file already exists, get confirmation
+        elif os.path.isfile(destination):
+            rewrite = input(f"File {os.path.basename(destination)} already exists. Rewrite this file? (Y/N): ")
+            return rewrite.strip().lower() in ["y", "yes"]
+        
+        elif path_exists_or_creatable(destination):
+            return True        
+    except Exception:
+        pass   
+    
+    print(f"Path {destination} is not valid")
+    return False
+    
+    
+    
 
 
 def get_search_list(filename):

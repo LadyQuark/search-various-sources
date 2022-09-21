@@ -60,7 +60,7 @@ def main():
             results[type].extend(search_results)
     # Create json file for each category of results
     for type in results:
-        folder_name = "ki_json/" + os.path.basename(args.search_file).replace(".txt", "")
+        folder_name = os.path.join("ki_json", os.path.basename(args.search_file).replace(".txt", ""))
         create_json_file(
             folder=folder_name, name=type, source_dict=results[type]
         )

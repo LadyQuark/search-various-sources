@@ -232,7 +232,7 @@ def transform_youtube_item(youtube_item, search_term, type="youtube"):
             'type': DEFAULT_VALUES['type'], 
             'metadata': {
                 'url': f"https://www.youtube.com/watch?v={youtube_item['id']['videoId']}",
-                'tag': [search_term.strip().lower()],
+                'tag': [search_term.strip().lower()] if search_term else [],
                 }, 
             'created': {
                 '$date': {

@@ -95,7 +95,7 @@ def transform_rss_item(episode, header, tag=None):
     
     return db_item
 
-def transform_podcast_result(episode, search_term):
+def transform_podcast_result(episode, search_term=None):
     PODCAST = {
         'mediaType': "audio",
         'tags': "podcast",
@@ -109,7 +109,7 @@ def transform_podcast_result(episode, search_term):
         if choice in episode and episode[choice] != None and episode[choice] != "":
             thumbnail = episode[choice]
             break
-
+    
     try:
         db_item = {
             'title': episode.get('trackName'), 

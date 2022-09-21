@@ -7,21 +7,22 @@ logger = logging.getLogger('ted-log')
 
 CHANNEL_TED = "UCAuUUnT6oDeKwE6v1NGQxug"
 CHANNEL_TEDED = "UCsooa4yRKGN_zEE8iknghZA"
+CHANNEL_TEDX = "UCsT0YIqwnpJCM-mx7-gSA4Q"
 TED_DB = load_existing_json_file(folder="db", name="ted_db")
 
 
-def ted_youtube_search_and_transform(search_term, limit=10, include_ted_ed=False):
+def ted_youtube_search_and_transform(search_term, limit=10, include_tedx=True):
     # Initialise variables
     search_results = []
     db_items = []
     
     # Search for videos in TED's channels on Youtube
-    if include_ted_ed:
+    if include_tedx:
         limit = limit // 2
     ted = search_youtube_channel(search_term, CHANNEL_TED, limit)
     search_results.extend(ted)
-    if include_ted_ed:
-        ted_ed = search_youtube_channel(search_term, CHANNEL_TEDED, limit)
+    if include_tedx:
+        ted_ed = search_youtube_channel(search_term, CHANNEL_TEDX, limit)
         search_results.extend(ted_ed)
     
     # Transform each result

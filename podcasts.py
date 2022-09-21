@@ -39,18 +39,21 @@ def search_podcasts(search_term, limit=10, search_type="podcastEpisode", attribu
         # print(f"Searching podcasts for {search_term}")
         response = requests.get(url, params=payload)
         response.raise_for_status()
+    
     except requests.exceptions.ConnectionError as e:
         if e.errno == -2:
             logger.warning("Too many retries")
             raise Exception("Too many retries")
         raise Exception(e)
+    
     except requests.exceptions.HTTPError as e:
         if response.status_code == 403:
             logger.warning("Quota exceeded for iTunes Search API")
             raise Exception("Quota exceeded for iTunes Search API")
         logger.warning(f"iTunes Search API: Failed search for {search_term}: {e}")
         return []
-    except requests.exceptions.RequestException as e:
+    
+    except Exception as e:
         logger.warning(f"iTunes Search API: Failed search for {search_term}: {e}")
         return []
     

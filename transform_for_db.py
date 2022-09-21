@@ -126,7 +126,7 @@ def transform_podcast_result(episode, search_term):
                 'podcast_title': episode.get('collectionName'),
                 'url': episode.get('trackViewUrl'),
                 'transcript': None,
-                'tag': [search_term.strip().lower()],
+                'tag': [search_term.strip().lower()] if isinstance(search_term, str) else [],
                 'additional_links': {
                         'itunes_url': episode.get('trackViewUrl'),
                         'spotify_url': None 

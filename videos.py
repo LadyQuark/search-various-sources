@@ -4,27 +4,29 @@ import requests
 from urllib import parse
 from dotenv import load_dotenv, find_dotenv
 from transform_for_db import transform_youtube_item
+from progress import progress
 
 # Get API key from .env
 load_dotenv(find_dotenv())
 API_KEY = os.getenv('YOUTUBE_API_KEY')
+MAX_RESULTS = 50
 
 logger = logging.getLogger('videos-log')
 
-def get_youtube(payload, verbose=False):
+def get_youtube(payload, verbose=False, url_path="search"):
     """ 
     Generator that makes GET request to YouTube Data API v3 with given payload
     https://developers.google.com/youtube/v3/docs/search/list
     and yields list of title and url, iterates over paged results
     """
 
-    url = "https://www.googleapis.com/youtube/v3/search"
+    url = "https://www.googleapis.com/youtube/v3/" + url_path
     n = 1
     while True:
         # Make request
         payload_str = parse.urlencode(payload, safe=':+')
         try:
-            if verbose: print("Getting page ", n)
+            # if verbose: print("Getting page ", n)
             response = requests.get(url, params=payload_str)
             response.raise_for_status()
         except requests.RequestException as e:
@@ -112,3 +114,22 @@ def search_youtube_channel(search_term, channelId, limit=10, order="relevance", 
     
     return results
 
+
+def youtube_videos_stats(ids, verbose=False):
+    
+    if isinstance(ids, list):
+        ids = ",".join(ids)
+            
+    # Construct request URL
+    payload = {
+        "part": "snippet,statistics",
+        "id": ids,
+        "maxResults": MAX_RESULTS,
+        "key": API_KEY,
+    }
+    results = []
+    youtube_results = get_youtube(payload, verbose=verbose, url_path="videos")
+    for result in youtube_results:
+        results.extend(result)
+    
+    return results

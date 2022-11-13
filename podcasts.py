@@ -7,6 +7,7 @@ from common import create_json_file, load_existing_json_file
 from transform_for_db import transform_podcast_result, transform_rss_item
 from match_spotify import find_spotify_episode
 from progress import progress
+from bs4 import BeautifulSoup
 
 logger = logging.getLogger('podcast-log')
 pp = pprint.PrettyPrinter(depth=6)
@@ -387,3 +388,34 @@ def match_itunes_info(rss_item, itunes_episodes):
         }
 
 
+def scrape_itunes_rating(url):
+    # Get podcast page
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+    except Exception:
+        return None
+    else:
+        soup = BeautifulSoup(response.content, "html.parser")
+    
+    # Check language is English
+    lang = soup.find("html")["lang"]
+    if "en" not in lang:
+        return None
+    
+    # Extract element containing ratings
+    rating_elems = soup.find_all("figcaption", class_="we-rating-count star-rating__count")
+    for elem in rating_elems:
+        ratings = elem.text.split(" • ")
+        if len(ratings) == 2 and " Rating" in ratings[1]:
+            # Return float value of rating and int value of number of ratings
+            try:
+                rating = float(ratings[0].strip())
+                rating_count_str = ratings[1].replace(" Ratings", "").replace(" Rating", "").strip()
+                rating_count = int(rating_count_str)
+            except ValueError:
+                return None
+            else:
+                return rating, rating_count
+    
+    return None

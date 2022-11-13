@@ -42,6 +42,30 @@ def standard_date(pub_date):
     
     return pub_date
 
+
+def standard_date(pub_date):
+    """ Standardise date format """
+    if pub_date:
+        try:
+            # Date format: YYYY -> YYYY:01:01
+            date = datetime.strptime(pub_date, "%Y")
+            pub_date = date.strftime("%Y-%m-%d")
+        except ValueError:
+            try:
+                # Check for timezones. #TODO: Account for more timezones
+                pub_date = pub_date.replace("EDT", "-0400")
+                pub_date = pub_date.replace("EST", "-0500")
+                pub_date = pub_date.replace("PST", "-0800")
+                pub_date = pub_date.replace("PDT", "-0700")
+                # Parse most known formats
+                date = parse(pub_date)
+                pub_date = date.strftime("%Y-%m-%d")
+            except ValueError:
+                logger.warning("Date Problem")
+                return None
+    
+    return pub_date
+
 def standard_duration(audio_length):
     """ Standardise time duration to HH:MM:SS format """
     if not audio_length:

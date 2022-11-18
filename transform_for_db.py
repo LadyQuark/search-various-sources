@@ -1,6 +1,9 @@
-from common import standard_date, standard_duration, timestamp_ms, clean_html, split_by_and
+import datetime
 import logging
 import pprint
+import requests
+from bs4 import BeautifulSoup
+from common import standard_date, standard_duration, timestamp_ms, clean_html, split_by_and
 
 logger = logging.getLogger('transform')
 

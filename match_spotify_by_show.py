@@ -4,7 +4,8 @@ import argparse
 import spotipy
 from common import create_json_file, load_existing_json_file, valid_source_destination, get_search_list
 from dotenv import load_dotenv, find_dotenv
-from match_spotify import match_title, search_show, match_podcast
+from match_spotify import match_title, search_show, match_podcast, get_show_episodes
+from transform_for_db import add_spotify_data
 from progress import progress
 from spotipy.oauth2 import SpotifyClientCredentials
 
@@ -42,10 +43,10 @@ def main():
     
     # Check path and get source file
     destination_folder = os.path.join(os.path.dirname(args.source), "updated")
+    if not valid_source_destination(args.source, destination_folder, file_ext=".json"):
+        exit(1)
     destination_file = os.path.basename(args.source)
     destination = os.path.join(destination_folder, destination_file)
-    if not valid_source_destination(args.source, destination, file_ext=".json"):
-        exit(1)
     podcast_episodes = load_existing_json_file(None, None, args.source)
     total = len(podcast_episodes)
     failed = []
@@ -58,7 +59,7 @@ def main():
     # Check if Spotify ID already stored for name
     with open(shows_file) as csvfile:
         reader = csv.DictReader(csvfile)
-        spotify_id = next(row['id'] for row in reader if row['name'] == podcast_name)
+        spotify_id = next((row['id'] for row in reader if row['name'] == podcast_name), None)
     # Else search for Spotify ID
     if not spotify_id:
         spotify_id = find_and_store_show_id(podcast_name, args.verbose)
@@ -96,18 +97,14 @@ def main():
             
             if match_title(episode_title, podcast_name, episode['name']):
                 # Update spotify link                
-                url = episode['external_urls']['spotify']
-                links['spotify_url'] = url
-                item['original'].append(episode)
+                item = add_spotify_data(item, episode) 
                 matched = True
                 count_matched += 1
                 if args.verbose: print(f"\n{episode_title} -> {episode['name']}")
                 break
             
             elif args.fuzzy and item["publishedDate"] == episode["release_date"]:
-                url = episode['external_urls']['spotify']
-                links['spotify_url'] = url
-                item['original'].append(episode)
+                item = add_spotify_data(item, episode) 
                 fuzzy.append(item)
                 matched = True
                 count_matched += 1
@@ -146,21 +143,7 @@ def find_and_store_show_id(name, verbose=False):
     return None
 
 
-def get_show_episodes(show_id, verbose=False):
-    offset = 0
-    while True: 
-        try:
-            results = sp.show_episodes(show_id=show_id, limit=50, offset=offset, market="US")
-        except spotipy.SpotifyException as e:
-            print(e.msg, e.reason)
-            if e.http_status == 429:
-                exit(1)
-            break
-        yield results['items']
 
-        offset += 50
-        if offset >= results['total']:
-            break
 
 
 

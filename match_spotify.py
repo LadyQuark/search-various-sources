@@ -5,10 +5,14 @@ import string
 import re
 import random
 import spotipy
-from common import create_json_file, load_existing_json_file, valid_source_destination
+from common import create_json_file, load_existing_json_file, valid_source_destination, standard_date
 from dotenv import load_dotenv, find_dotenv
 from progress import progress
 from spotipy.oauth2 import SpotifyClientCredentials
+from urllib.parse import urlparse
+from transform_for_db import transform_spotify, add_itunes_data
+import podcasts
+from time import sleep
 from sys import exit
 
 # Get API keys from .env
@@ -260,6 +264,145 @@ def search_show(podcast_name, verbose=False):
         return []
     
     return results['shows']['items']
+
+def find_spotify_show(name, verbose=False):
+    try:
+        results = search_show(name)
+    except Exception as e:
+        exit(1)
+            
+    for item in results:
+        if match_podcast(name, item['name'], item['publisher']):
+            if verbose: print("✔️ ", item['name'])
+            return item
+        elif verbose:
+            print("X ", item['name'])
+
+    return None
+
+def get_show_episodes(show_id, verbose=False):
+    offset = 0
+    while True: 
+        try:
+            results = sp.show_episodes(show_id=show_id, limit=50, offset=offset, market="US")
+        except spotipy.SpotifyException as e:
+            print(e.msg, e.reason)
+            if e.http_status == 429:
+                exit(1)
+            break
+        yield results['items']
+
+        offset += 50
+        if offset >= results['total']:
+            break
+
+
+def save_all_episodes_podcast_and_transform(url, podcast_name, folder="ki_json", verbose=False, fetch_itunes=True):
+    """
+    1. Gets ID of each podcast name in `podcast_list`
+    2. Gets RSS feed
+    3. Gets all episodes using iTunes Lookup API
+    4. Matches each RSS item with episodes from iTunes Lookup API
+    5. Transform all RSS items + corresponding iTunes link for episode
+    6. Saves transformed items in JSON file for each podcast
+    """
+
+    parsed_url = urlparse(url)
+    split_path = parsed_url.path.rsplit("/", maxsplit=1)
+    if len(split_path) != 2:
+        raise Exception("No Spotify ID found in URL")
+    if split_path[0] != "/show":
+        raise Exception("Spotify URL not for podcast show")
+    spotify_id = split_path[1]
+
+    # 2. Get info about episode from podcast
+    spotify_show = find_spotify_show(podcast_name, verbose)
+    spotify_episodes = []
+    for episode_set in get_show_episodes(spotify_id, verbose):
+        spotify_episodes.extend(episode_set)
+
+    episodes = []
+    fuzzy = []
+    failed = []
+    
+    for item in spotify_episodes:
+        episode = transform_spotify(item, search_term=None, metadata=spotify_show)
+        if episode:
+            episodes.append(episode)
+    
+    total = len(episodes)
+
+    if fetch_itunes:
+
+        itunes_podcast = podcasts.search_podcasts(search_term=podcast_name, limit=5, search_type="podcast")[0]
+        if itunes_podcast:
+            itunes_id = itunes_podcast['podcastId']
+            itunes_episodes = podcasts.itunes_lookup_podcast(itunes_id)
+            show = next((item for item in itunes_episodes if item["kind"] == "podcast"), {})
+            metadata = podcasts.scrape_itunes_metadata(itunes_id, show)
+
+            for i, item in enumerate(episodes):
+                # progress(i + 1, total)
+                episode_title = item["title"]
+                count_matched = 0
+                if verbose: print(episode_title)
+                item['metadata']['podcast_id']['itunes_id'] = itunes_id
+
+                
+                for itunes in itunes_episodes:
+                    if itunes["wrapperType"] != "podcastEpisode":
+                        continue
+
+                    try:
+                        if match_title(episode_title, podcast_name, itunes['trackName']):
+                            item = add_itunes_data(item, itunes, metadata)            
+                            matched = True
+                            count_matched += 1
+                            if verbose: print(f"\n{episode_title} -> {itunes['trackName']}")
+                            break
+                            
+                        elif item["publishedDate"] == standard_date(itunes["releaseDate"]):
+                            item = add_itunes_data(item, itunes, metadata) 
+                            matched = True
+                            fuzzy.append(item)
+                            count_matched += 1
+                            if verbose: print(f"\n{episode_title} -> {itunes['trackName']}")
+                            if verbose: print("Matched by date not title")
+                            break
+                    except Exception as e:
+                        print(e.__class__.__name__, e)
+                        pp.pprint(itunes)
+                        pp.pprint(item)
+                        exit(1)
+                    
+                if not matched:
+                    query = episode_title
+                    while len(query) > 100:
+                        query = query.rsplit(" ", maxsplit=1)[0]
+                    try:
+                        if verbose: print("\nSearching iTunes by title")
+                        results = podcasts.search_podcasts(query, attribute="titleTerm")
+                        sleep(5)
+                    except Exception as e:
+                        print(e)
+                        failed.append(item)
+                    else:
+                        for result in results:
+                            # Update `additional_links` and stop loop
+                            if result['podcastId'] == itunes_id:                  
+                                item = add_itunes_data(item, result, metadata) 
+                                count_matched += 1
+                                matched = True
+                                break
+
+                    if not matched:
+                        failed.append(item)
+                        if verbose: print("No matches found!")
+                            
+        create_json_file(folder=folder, name="itunes_failed", source_dict=failed)
+        create_json_file(folder=folder, name="itunes_fuzzy_matches", source_dict=fuzzy)
+
+    create_json_file(folder=folder, name=podcast_name, source_dict=episodes)
 
 
 if __name__=="__main__":

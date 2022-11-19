@@ -6,12 +6,14 @@ from dotenv import load_dotenv, find_dotenv
 from transform_for_db import transform_scopus
 from sys import exit
 from progress import progress
+import pprint
 
 # Get API key from .env
 load_dotenv(find_dotenv())
 API_KEY = os.getenv('SCOPUS_API_KEY')
 
 logger = logging.getLogger('research-log')
+pp = pprint.PrettyPrinter(depth=6)  
 
 def get_scopus(payload):
     """
@@ -68,7 +70,7 @@ def search_scopus(search_term, limit=10):
         if len(results) >= limit:
             scopus_results.close()
 
-    return results    
+    return results[:limit]  
 
 
 def research_search_and_transform(search_term, limit=10):
@@ -76,6 +78,7 @@ def research_search_and_transform(search_term, limit=10):
     Search Scopus and return transformed results
     """
     search_results = search_scopus(search_term, limit)
+    pp.pprint(search_results)
     
     total = len(search_results)
     db_items = []

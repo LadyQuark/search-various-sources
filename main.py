@@ -22,7 +22,7 @@ def main():
     # Parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("search_file", help="Path of the text file containing search terms")
-    parser.add_argument("-limit", help="Update only first 10 items", type=int, default=TOTAL_RESULTS)
+    parser.add_argument("-l", "--limit", help="Update only first 10 items", type=int, default=TOTAL_RESULTS)
     args = parser.parse_args()
     
     # Get search terms from text file at `args.search_time`
@@ -43,7 +43,7 @@ def main():
     }
     # List of functions and the category of results they generate
     search_functions = [
-        ('podcasts', podcast_eps_search_and_transform),
+        # ('podcasts', podcast_eps_search_and_transform),
         ('research', research_search_and_transform),
         ('videos', youtube_search_and_transform),
         ('tedtalks', ted_youtube_search_and_transform),

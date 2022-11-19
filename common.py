@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from dateutil.parser import parse
 from html import unescape
 import json
@@ -18,30 +18,6 @@ logging.basicConfig(
     format="%(asctime)s %(name)s %(message)s",
     level=logging.DEBUG)
 logger = logging.getLogger('common')
-
-def standard_date(pub_date):
-    """ Standardise date format """
-    if pub_date:
-        try:
-            # Date format: YYYY -> YYYY:01:01
-            date = datetime.strptime(pub_date, "%Y")
-            pub_date = date.strftime("%Y-%m-%d")
-        except ValueError:
-            try:
-                # Check for timezones. #TODO: Account for more timezones
-                pub_date = pub_date.replace("EDT", "-0400")
-                pub_date = pub_date.replace("EST", "-0500")
-                pub_date = pub_date.replace("PST", "-0800")
-                pub_date = pub_date.replace("PDT", "-0700")
-                # Parse most known formats
-                date = parse(pub_date)
-                pub_date = date.strftime("%Y-%m-%d")
-            except ValueError:
-                logger.warning("Date Problem")
-                return None
-    
-    return pub_date
-
 
 def standard_date(pub_date):
     """ Standardise date format """
@@ -133,7 +109,7 @@ def split_by_and(input_string):
 def create_json_file(folder, name, source_dict):
     
     # Convert `data_dict` to JSON formatted string
-    json_string = json.dumps(source_dict, indent=4)
+    json_string = json.dumps(source_dict, indent=4, cls=CustomEncoder)
     
     # Create valid file name and create folder if needed
     try:
@@ -259,3 +235,11 @@ def get_search_list(filename):
         search_list = [line.strip() for line in f.readlines()]
 
     return search_list    
+
+class CustomEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, set):
+            return list(obj)
+        if isinstance(obj, (datetime, date)):
+            return {"$date": str(obj.isoformat())}
+        return json.JSONEncoder.default(self, obj)

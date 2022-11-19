@@ -1,7 +1,7 @@
 from sys import exit
 import argparse
 from videos import search_youtube_channel
-from transform_for_db import transform_youtube_item
+from transform_for_db import transform_youtube
 import logging
 from progress import progress
 from common import create_json_file, load_existing_json_file, valid_destination
@@ -17,7 +17,7 @@ def main():
     parser.add_argument("destination", help="Path of the updated JSON file")
     parser.add_argument("channel", help="ID of channel", type=str)
     parser.add_argument("-v", "--verbose", help="Print results as they come", action="store_true")
-    parser.add_argument("-limit", help="Update only first 10 items", type=int, default=0)
+    parser.add_argument("--limit", help="Update only first 10 items", type=int, default=0)
     args = parser.parse_args()
 
     if not valid_destination(args.destination):
@@ -46,10 +46,11 @@ def youtube_channel_and_transform(channel, limit=None, verbose=False):
     for i, result in enumerate(results):
         if verbose: progress(i+1, total)
         try:
-            item = transform_youtube_item(result, search_term=None)
+            item = transform_youtube(result, search_term=None)
         except Exception as e:
             if verbose: print(f"Transform error: {e}")
             logger.warning(f"Transform error: {e}")
+            pp.pprint(result)
         else:
             db_items.append(item)
     return db_items

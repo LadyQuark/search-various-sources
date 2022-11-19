@@ -3,8 +3,9 @@ import logging
 import requests
 from urllib import parse
 from dotenv import load_dotenv, find_dotenv
-from transform_for_db import transform_youtube_item
+from transform_for_db import transform_youtube
 from progress import progress
+import pprint
 
 # Get API key from .env
 load_dotenv(find_dotenv())
@@ -12,6 +13,7 @@ API_KEY = os.getenv('YOUTUBE_API_KEY')
 MAX_RESULTS = 50
 
 logger = logging.getLogger('videos-log')
+pp = pprint.PrettyPrinter(depth=6)
 
 def get_youtube(payload, verbose=False, url_path="search"):
     """ 
@@ -30,8 +32,8 @@ def get_youtube(payload, verbose=False, url_path="search"):
             response = requests.get(url, params=payload_str)
             response.raise_for_status()
         except requests.RequestException as e:
-            if verbose: print(f"Unable to search YouTube for {payload['q']}: {e}")
-            logger.warning(f"Unable to search YouTube for {payload['q']}: {e}")
+            if verbose: print(f"Unable to search YouTube for {payload}: {e}")
+            logger.warning(f"Unable to search YouTube for {payload}: {e}")
             break
         # Parse response
         data = response.json()
@@ -79,7 +81,7 @@ def youtube_search_and_transform(search_term, limit=10):
     db_items = []
     for result in search_results:
         try:
-            item = transform_youtube_item(result, search_term)
+            item = transform_youtube(result, search_term)
         except Exception as e:
             logger.warning(f"Transform error: {e}")
         else:
@@ -111,18 +113,21 @@ def search_youtube_channel(search_term, channelId, limit=10, order="relevance", 
         results.extend(result)
         if limit and len(results) >= limit:
             youtube_results.close()
+
+    ids = [result['id']['videoId'] for result in results]
+    statistics = youtube_videos_stats(ids, verbose=verbose)
     
-    return results
+    return statistics
 
 
-def youtube_videos_stats(ids, verbose=False):
+def youtube_videos_stats(ids, verbose=False, part="snippet,statistics"):
     
     if isinstance(ids, list):
         ids = ",".join(ids)
             
     # Construct request URL
     payload = {
-        "part": "snippet,statistics",
+        "part": part,
         "id": ids,
         "maxResults": MAX_RESULTS,
         "key": API_KEY,

@@ -1,5 +1,5 @@
 from videos import search_youtube_channel
-from transform_for_db import transform_youtube_item
+from transform_for_db import transform_youtube
 import logging
 from common import load_existing_json_file
 
@@ -28,7 +28,7 @@ def ted_youtube_search_and_transform(search_term, limit=10, include_tedx=True):
     # Transform each result
     for result in search_results:
         try:
-            item = transform_youtube_item(result, search_term, type="tedtalks")
+            item = transform_youtube(result, search_term, type="tedtalks")
             youtube_url = item['metadata']['url']
             ted_item = TED_DB[youtube_url]
             item['title'] = ted_item['title']

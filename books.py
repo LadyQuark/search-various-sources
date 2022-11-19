@@ -3,7 +3,7 @@ import logging
 import requests
 from urllib import parse
 from dotenv import load_dotenv, find_dotenv
-from transform_for_db import transform_book_item
+from transform_for_db import transform_book
 
 # Get API key from .env
 load_dotenv(find_dotenv())
@@ -68,7 +68,7 @@ def books_search_and_transform(search_term, limit=10):
     db_items = []
     for result in search_results:
         try:
-            item = transform_book_item(result, search_term)
+            item = transform_book(result, search_term)
         except Exception as e:
             logger.warning(f"Transform error: {e}")
         else:

@@ -3,7 +3,7 @@ import logging
 import requests
 from urllib import parse
 from dotenv import load_dotenv, find_dotenv
-from transform_for_db import transform_scopus_item
+from transform_for_db import transform_scopus
 from sys import exit
 from progress import progress
 
@@ -84,7 +84,7 @@ def research_search_and_transform(search_term, limit=10):
         progress(i+1, total)
         # Transform result
         try:
-            item = transform_scopus_item(result, search_term)
+            item = transform_scopus(result, search_term)
         except Exception as e:
             logger.warning(f"Transform error: {e}")
             continue

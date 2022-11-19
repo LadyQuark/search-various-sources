@@ -4,6 +4,7 @@ import requests
 from urllib import parse
 from dotenv import load_dotenv, find_dotenv
 from transform_for_db import transform_book
+from urllib.parse import urlparse, parse_qs, urlencode
 
 # Get API key from .env
 load_dotenv(find_dotenv())
@@ -74,3 +75,31 @@ def books_search_and_transform(search_term, limit=10):
         else:
             db_items.append(item)
     return db_items
+
+
+def get_googlebooks_volume(book_id):
+    if not book_id:
+        raise Exception(f"get_googlebooks_volume: Google Books ID not found", book_id)
+
+    google_url = "https://www.googleapis.com/books/v1/volumes/" + book_id
+    payload = {
+        "key": API_KEY,
+    }
+    # Make request
+    payload_str = urlencode(payload, safe=':+')
+    try:
+        response = requests.get(google_url, params=payload_str)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        raise Exception(f"Unable to fetch data for Google Books ID {book_id}: {e}")
+
+
+    data = response.json()
+    return data
+
+
+def extract_book_id(url):
+    parsed_url = urlparse(url)
+    queries = parse_qs(parsed_url.query)
+    book_id = queries.get("id", [None])
+    return book_id[0]

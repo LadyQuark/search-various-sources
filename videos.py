@@ -122,19 +122,23 @@ def search_youtube_channel(search_term, channelId, limit=10, order="relevance", 
 
 def youtube_videos_stats(ids, verbose=False, part="snippet,statistics"):
     
-    if isinstance(ids, list):
-        ids = ",".join(ids)
-            
-    # Construct request URL
-    payload = {
-        "part": part,
-        "id": ids,
-        "maxResults": MAX_RESULTS,
-        "key": API_KEY,
-    }
+    if isinstance(ids, str):
+        ids = [ids]
+
     results = []
-    youtube_results = get_youtube(payload, verbose=verbose, url_path="videos")
-    for result in youtube_results:
-        results.extend(result)
+    
+    for i in range(0, len(ids), MAX_RESULTS):
+        id_chunks = ids[i:i + MAX_RESULTS]
+            
+        # Construct request URL
+        payload = {
+            "part": part,
+            "id": ",".join(id_chunks) ,
+            "maxResults": MAX_RESULTS,
+            "key": API_KEY,
+        }
+        youtube_results = get_youtube(payload, verbose=verbose, url_path="videos")
+        for result in youtube_results:
+            results.extend(result)
     
     return results

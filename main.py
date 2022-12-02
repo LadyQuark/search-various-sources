@@ -43,12 +43,13 @@ def main():
     }
     # List of functions and the category of results they generate
     search_functions = [
-        # ('podcasts', podcast_eps_search_and_transform),
+        ('podcasts', podcast_eps_search_and_transform),
         ('research', research_search_and_transform),
         ('videos', youtube_search_and_transform),
         ('tedtalks', ted_youtube_search_and_transform),
         ('books', books_search_and_transform),
     ]
+    folder_name = os.path.join("ki_json", os.path.basename(args.search_file).replace(".txt", ""))
     # Loop through each function
     for type, fn in search_functions:
         # Loop through each search term
@@ -58,12 +59,12 @@ def main():
             search_results = fn(search_term, args.limit)
             # Add results to results list
             results[type].extend(search_results)
-    # Create json file for each category of results
-    for type in results:
-        folder_name = os.path.join("ki_json", os.path.basename(args.search_file).replace(".txt", ""))
+        # Create json file for each category of results
         create_json_file(
             folder=folder_name, name=type, source_dict=results[type]
         )
+        
+        
 
 
 if __name__=="__main__":

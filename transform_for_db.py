@@ -214,7 +214,8 @@ def transform_spotify(episode, search_term=None, metadata={}):
 
 def add_itunes_data(db_item, itunes_episode, metadata=None):
     podcast_id = itunes_episode['collectionId']
-    metadata = scrape_itunes_metadata(podcast_id)
+    if not metadata:
+        metadata = scrape_itunes_metadata(podcast_id)
     db_item['metadata']['additional_links']['itunes_url'] = itunes_episode.get('trackViewUrl')
     db_item['metadata']['rating'] = metadata.get('rating')
     db_item['metadata']['rating_count'] = metadata.get('rating_count')

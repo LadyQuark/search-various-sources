@@ -94,17 +94,6 @@ def research_search_and_transform(search_term, limit=10):
         if not item:
             continue
         db_items.append(item)
-        # Transform result
-        # item = transform_scopus(result, search_term)
-        # if not item: 
-        #     continue
-        
-        # # Get abstract and append if available
-        # doi = item['original'][0]['prism:doi']
-        # description = get_abstract(doi)
-        # if description:
-        #     item['description'] = description.strip()
-        #     db_items.append(item)
 
     return db_items
 

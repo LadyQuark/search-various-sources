@@ -4,8 +4,10 @@ import requests
 import xmltodict
 import pprint
 from common import create_json_file, load_existing_json_file
-from transform_for_db import transform_rss_item, transform_itunes, add_spotify_data, scrape_itunes_metadata
+from transform_for_db import transform_rss_item, transform_itunes, transform_spotify, add_spotify_data, scrape_itunes_metadata, add_itunes_data
+from urllib.parse import urlparse
 import match_spotify
+from time import sleep
 from progress import progress
 
 
@@ -13,7 +15,7 @@ logger = logging.getLogger('podcast-log')
 pp = pprint.PrettyPrinter(depth=6)
 attributes = ['titleTerm', 'languageTerm', 'authorTerm', 'genreIndex', 'artistTerm', 'ratingIndex', 'keywordsTerm', 'descriptionTerm']
 
-def search_podcasts(search_term, limit=10, search_type="podcastEpisode", attribute=None):
+def search_podcasts(search_term, limit=10, search_type="podcastEpisode", attribute=None, offset=0):
     """ 
     Searches podcasts for given search term using iTunes Search API
     https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/Searching.html#//apple_ref/doc/uid/TP40017632-CH5-SW1
@@ -30,6 +32,7 @@ def search_podcasts(search_term, limit=10, search_type="podcastEpisode", attribu
         "media": "podcast",
         "entity": search_type,
         "limit": limit,
+        "offset": offset
     }
     if attribute:
         if attribute in attributes:
@@ -40,6 +43,7 @@ def search_podcasts(search_term, limit=10, search_type="podcastEpisode", attribu
         # print(f"Searching podcasts for {search_term}")
         response = requests.get(url, params=payload)
         response.raise_for_status()
+        print(response.url)
     
     except requests.exceptions.ConnectionError as e:
         if e.errno == -2:
@@ -167,16 +171,6 @@ def get_episode_from_rss_feed(search_result):
         return db_item
              
 
-def get_info_from_search_result(search_result, search_term):
-    try:
-        db_item = transform_podcast_result(search_result, search_term)
-    except Exception as e:
-        # print(f"Transform without RSS: Failed for {search_result['collectionName']} - {search_result['trackName']}: {e}")
-        logger.warning(f"Transform without RSS: Failed for {search_result['collectionName']} - {search_result['trackName']}: {e}")
-        return None
-    return db_item
-
-
 def podcast_eps_search_and_transform(search_term, limit=10):
 
     # 1. Search for term using iTunes Search API
@@ -269,7 +263,7 @@ def itunes_lookup_podcast(podcastId, limit=200, sort="recent", offset=0):
     return data['results']
 
 
-def save_all_episodes_podcast_and_transform(podcast_list, folder="ki_json", verbose=False):
+def save_all_episodes_podcast_and_transform(url, podcast_name, folder="ki_json", verbose=False):
     """
     1. Gets ID of each podcast name in `podcast_list`
     2. Gets RSS feed
@@ -280,124 +274,119 @@ def save_all_episodes_podcast_and_transform(podcast_list, folder="ki_json", verb
     """
     
     failed = {}
-    total = len(podcast_list)
-    for i, name in enumerate(podcast_list):
-        # progress(i, total, name)
-        
-        if isinstance(name, str):
-            # Search for podcast names
-            try:
-                results = search_podcasts(search_term=name, limit=5, search_type="podcast")
-                if len(results) < 1:
-                    raise Exception
-                elif len(results) > 1:
-                    if verbose: print(f'\n{name} has more than 1 result')
-                podcast = results[0]
-            except Exception as e:
-                if verbose: print(f'Failed to find for {name}: {e}')
-                failed[name] = f'Failed to find for {name}: {e}'
-                continue
-        elif isinstance(name, int):
-            podcast = {}
-            podcast['podcastId'] = name
-        else:
+    
+    if url and "podcasts.apple.com" in url:
+        parsed_url = urlparse(url)
+        split_path = parsed_url.path.rsplit("/", maxsplit=2)
+        if len(split_path) != 3 or "id" not in split_path[2]:
+            raise Exception("No iTunes ID for podcast found in URL")
+        podcast_id = split_path[2].replace("id", "")
+    elif podcast_name:
+        try:
+            results = search_podcasts(search_term=podcast_name, limit=5, search_type="podcast")
+            if len(results) < 1:
+                raise Exception
+            elif len(results) > 1:
+                if verbose: print(f'\n{podcast_name} has more than 1 result')
+            podcast = results[0]
+            podcast_id = podcast['podcastId']
+        except Exception as e:
+            if verbose: print(f'Failed to find for {podcast_name}: {e}')
+            failed[podcast_name] = f'Failed to find for {podcast_name}: {e}'
             return
-        
-        # Transform all episodes
-        episodes = []
-        itunes_episodes = itunes_lookup_podcast(podcast['podcastId'])
-        show = next((item for item in itunes_episodes if item["kind"] == "podcast"), {})
-        metadata = scrape_itunes_metadata(podcast['podcastId'], show) 
-        # create_json_file(folder="test", name=name, source_dict=itunes_episodes)
-        for item in itunes_episodes:
-            if item["wrapperType"] != "podcastEpisode":
-                continue
-            episode = transform_itunes(item, metadata)
-            if episode:                
-                episodes.append(episode)
+    else:
+        return
+    
+    # Transform all episodes
+    episodes = []
+    itunes_episodes = itunes_lookup_podcast(podcast_id)
+    show = next((item for item in itunes_episodes if item["kind"] == "podcast"), {})
+    podcast_name = show['collectionName']
+    track_count = show['trackCount']
+    metadata = scrape_itunes_metadata(podcast_id, show) 
+    # create_json_file(folder="test", name=podcast_name, source_dict=itunes_episodes)
+    for item in itunes_episodes:
+        if item["wrapperType"] != "podcastEpisode":
+            continue
+        episode = transform_itunes(item, metadata)
+        if episode:                
+            episodes.append(episode)
 
-        # Find Spotify show
-        podcast_name = show['collectionName']
-        spotify_show = match_spotify.find_spotify_show(podcast_name, verbose)
-        spotify_show_id = spotify_show['id']
-        if spotify_show_id:
-            spotify_episodes = []
-            fuzzy = []
-            failed = []
-            # Get all episodes of show
-            spotify_results = match_spotify.get_show_episodes(spotify_show_id, verbose)
-            for episode_set in spotify_results:
-                spotify_episodes.extend(episode_set)
+    # Find Spotify show
+    spotify_show = match_spotify.find_spotify_show(podcast_name, verbose)
+    spotify_show_id = spotify_show.get('id')
+    if spotify_show_id:
+        spotify_episodes = []
+        fuzzy = []
+        failed = []
+        # Get all episodes of show
+        spotify_results = match_spotify.get_show_episodes(spotify_show_id, verbose)
+        for batch in spotify_results:
+            spotify_episodes.extend(batch)
+        spotify_unmatched = {spot['id']: spot for spot in spotify_episodes}
 
-            for item in episodes:
-                episode_title = item["title"]
-                count_matched = 0
-                item['metadata']['podcast_id']['spotify_id'] = spotify_show_id
-                
-                for spot in spotify_episodes: 
-                    if match_spotify.match_title(episode_title, podcast_name, spot['name']):
-                        # Update spotify link                
-                        item = add_spotify_data(item, spot) 
-                        matched = True
-                        count_matched += 1
-                        if verbose: print(f"\n{episode_title} -> {spot['name']}")
-                        break
-                    
-                    elif item["publishedDate"] == spot["release_date"]:
-                        item = add_spotify_data(item, spot) 
-                        fuzzy.append(item)
-                        matched = True
-                        count_matched += 1
-                        if verbose: print(f"\n{episode_title} -> {spot['name']}")
-                        if verbose: print("Matched by date not title")
-                        break
-                
-                    if not matched:
-                        failed.append(item)
-                        if verbose: print("No matches found!")  
+        for item in episodes:
+            episode_title = item["title"]
+            matched = False
+            item['metadata']['podcast_id']['spotify_id'] = spotify_show_id
             
-            create_json_file(folder=folder, name="spotify_failed", source_dict=failed)
-            create_json_file(folder=folder, name="spotify_fuzzy_matches", source_dict=fuzzy)
+            for spot_id in spotify_unmatched: 
+                spot = spotify_unmatched[spot_id]
+                spot_name = spot['name']
 
-
-
-        """ 
-        # Get all episodes from RSS feed
-        rss = get_podcast_from_rss_feed(podcast)            
-
-        else:
-            # Matches with 
-            itunes_episodes = itunes_lookup_podcast(podcast['podcastId'])
-            total_rss = len(rss)
-            count_matched = 0
-            for item in rss:
-                # Set header to the matching episode details from iTunes 
-                if itunes_episodes:
-                    header = match_itunes_info(item, itunes_episodes)
-                    if header['itunes_url']:
-                        count_matched += 1
-                # if no match is found, set podcast search result as header
-                else:
-                    header = podcast
+                if match_spotify.match_title(episode_title, podcast_name, spot_name):
+                    # Update spotify link                
+                    item = add_spotify_data(item, spot) 
+                    matched = True
+                    if verbose: print(f"\n{episode_title} -> {spot_name}")
+                    break
                 
-                # Transform item given info available
+                elif item["publishedDate"] == spot["release_date"]:
+                    item = add_spotify_data(item, spot) 
+                    fuzzy.append(item)
+                    matched = True
+                    if verbose: print(f"\n{episode_title} -> {spot_name}")
+                    if verbose: print("Matched by date not title")
+                    break
+            
+            if matched:
+                if spot_id in spotify_unmatched: del spotify_unmatched[spot_id]
+            else:
+                failed.append(item)
+                if verbose: print("No matches found!")  
+
+        if spotify_unmatched and track_count >= 200:
+            unmatched_count = len(spotify_unmatched)
+            for i, spot_id in enumerate(spotify_unmatched): 
+                spot = spotify_unmatched[spot_id]
+                spotify_episode = transform_spotify(spot, metadata=spotify_show)
+                if not spotify_episode:
+                    break
+                query = spot['name']
+                while len(query) > 100:
+                    query = query.rsplit(" ", maxsplit=1)[0]
                 try:
-                    episode = transform_rss_item(item, header, tag=None)
+                    if verbose: progress(i, unmatched_count, "Searching iTunes by title")
+                    results = search_podcasts(query, attribute="titleTerm")
+                    sleep(5)
                 except Exception as e:
-                    logger.warning(f"Transform: Failed for {podcast['podcastName']} - {podcast['title']}: {e}")
-                    continue
-                
-                episodes.append(episode)
-
-            print(f"\nMatched {count_matched} out of {total_rss} episodes")
-
-            if count_matched < total_rss:
-                pass 
-        """
+                    print(e)
+                    failed.append(spotify_episode)
+                else:
+                    for result in results:
+                        # Update `additional_links` and stop loop
+                        if result['podcastId'] == podcast_id:                  
+                            add_itunes_data(spotify_episode, result, metadata) 
+                            count_matched += 1
+                            matched = True
+                            break
+                episodes.append(spotify_episode)
         
-        
-        # Create json file for transformed episodes in folder
-        create_json_file(folder=folder, name=name, source_dict=episodes)
+        create_json_file(folder=folder, name="spotify_failed", source_dict=failed)
+        create_json_file(folder=folder, name="spotify_fuzzy_matches", source_dict=fuzzy)
+    
+    # Create json file for transformed episodes in folder
+    create_json_file(folder=folder, name=podcast_name, source_dict=episodes)
             
 
     if len(failed) > 0:

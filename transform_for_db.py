@@ -90,13 +90,13 @@ def transform_rss_item(episode, header, tag=None):
 
     try:
 
-        db_item['title'] = episode.get('itunes:title', episode.get('title'))
+        db_item['title'] = episode.get('itunes:title', episode.get('trackName'))
         db_item['thumbnail'] = thumbnail
         db_item['description'] = clean_html(episode.get('description', ""))
-        db_item['authors'] = authors if authors != [""] else [header['podcastName']]
+        db_item['authors'] = authors if authors != [""] else [header['collectionName']]
         db_item['metadata']['audio_length'] = duration
         db_item['metadata']['audio_file'] = episode.get('enclosure', {}).get('@url')
-        db_item['metadata']['podcast_title'] = header['podcastName']
+        db_item['metadata']['podcast_title'] = header['collectionName']
         db_item['metadata']['url'] = itunes_url if itunes_url else episode.get('link', itunes_result.get('collectionViewUrl'))
         db_item['metadata']['tag'] = tag
         db_item['metadata']['additional_links']['itunes_url'] = itunes_url

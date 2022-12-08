@@ -67,8 +67,8 @@ def main():
             # Find matching result
             for result in results:
                 # Update `additional_links` and stop loop
-                if result['title'] == episode_title and result['podcastId'] == podcast_id:                  
-                    links['itunes_url'] = result['url']
+                if result['trackName'] == episode_title and result['collectionId'] == podcast_id:                  
+                    links['itunes_url'] = result['trackViewUrl']
                     count_matched += 1
                     matched = True
                     break
@@ -88,9 +88,8 @@ def main():
 
 def find_podcast_id(podcast_episodes):
     for item in podcast_episodes:
-        for original in item['original']:
-            if "collectionId" in original:
-                return original['collectionId']
+        if "collectionId" in item:
+            return item['collectionId']
     return None
 
 

@@ -65,18 +65,22 @@ def search_podcasts(search_term, limit=10, search_type="podcastEpisode", attribu
     # Parse response
     try:
         data = response.json()
-        results = []
-        for item in data['results']:         
-            results.append({
-                'feedUrl': item['feedUrl'] if 'feedUrl' in item else None,
-                'podcastName': item['collectionName'],
-                'podcastId': item['collectionId'],
-                'podcastUrl': item['collectionViewUrl'],
-                'title': item.get('trackName'),
-                'url': item.get('trackViewUrl'),
-                'tag': search_term,
-                'original': item,
-            })
+        results = data['results']
+        if not attribute:
+            for item in results:
+                item['tag'] = search_term
+        # results = []
+        # for item in data['results']:         
+        #     results.append({
+        #         'feedUrl': item['feedUrl'] if 'feedUrl' in item else None,
+        #         'podcastName': item['collectionName'],
+        #         'podcastId': item['collectionId'],
+        #         'podcastUrl': item['collectionViewUrl'],
+        #         'title': item.get('trackName'),
+        #         'url': item.get('trackViewUrl'),
+        #         'tag': search_term,
+        #         'original': item,
+        #     })
     except Exception as e:
         # print(f"Failed parsing {search_term}: {e}")
         logger.warning(f"Failed parsing {search_term}: {e}")
@@ -91,28 +95,28 @@ def get_podcast_from_rss_feed(search_result):
     """
     
     # Search if already downloaded RSS feed
-    rss_filename = search_result['podcastName'] + " " + str(search_result['podcastId'])
+    rss_filename = search_result['collectionName'] + " " + str(search_result['collectionId'])
     data_dict = load_existing_json_file(folder="original_rss", name=rss_filename)
     
     if not search_result['feedUrl']:
-        logger.warning(f"RSS: No Feed URL for {search_result['podcastName']}")
+        logger.warning(f"RSS: No Feed URL for {search_result['collectionName']}")
         return None
 
     elif not data_dict:
-        # print(f"Getting RSS file for {search_result['podcastName']}")
+        # print(f"Getting RSS file for {search_result['collectionName']}")
         try:
             response = requests.get(search_result['feedUrl'])
             response.raise_for_status()
         except requests.RequestException:
-            # print(f"Unable to fetch RSS for {search_result['podcastName']}")
-            logger.warning(f"RSS: Failed fetch for {search_result['podcastName']}")
+            # print(f"Unable to fetch RSS for {search_result['collectionName']}")
+            logger.warning(f"RSS: Failed fetch for {search_result['collectionName']}")
             return None
 
         # Parse xml response as dict
         try:
             data_dict = xmltodict.parse(response.content)
         except Exception as e:
-            logger.warning(f"RSS: {search_result['podcastName']}: {e}")
+            logger.warning(f"RSS: {search_result['collectionName']}: {e}")
             return None
         else:
             data_dict = data_dict["rss"]["channel"]
@@ -132,7 +136,7 @@ def get_podcast_from_rss_feed(search_result):
         # print("This isn't a list")
         items = [data_dict["item"]]
     else:
-        logger.info(f"Problem with data from {search_result['podcastName']}")
+        logger.info(f"Problem with data from {search_result['collectionName']}")
         return None
 
     return items
@@ -152,20 +156,20 @@ def get_episode_from_rss_feed(search_result):
         return None
 
     for item in items:
-        if match_title(item, search_result['title']):
+        if match_title(item, search_result['trackName']):
             episode = item
             break
 
     if not episode:
-        logger.warning(f"RSS: Could not find {search_result['title']} in {search_result['podcastName']}")
+        logger.warning(f"RSS: Could not find {search_result['trackName']} in {search_result['collectionName']}")
         return None
 
     # Convert into structured dict
     try:
         db_item = transform_rss_item(episode, search_result)
     except Exception as e:
-        # print(f"Transform: Failed for {search_result['podcastName']} - {search_result['title']}: {e}")
-        logger.warning(f"Transform: Failed for {search_result['podcastName']} - {search_result['title']}: {e}")
+        # print(f"Transform: Failed for {search_result['collectionName']} - {search_result['trackName']}: {e}")
+        logger.warning(f"Transform: Failed for {search_result['collectionName']} - {search_result['trackName']}: {e}")
         return None
     else:
         return db_item
@@ -235,14 +239,14 @@ def match_title(rss_item, episode_title):
     return episode_title.strip() in all_titles
 
 
-def itunes_lookup_podcast(podcastId, limit=200, sort="recent", offset=0):
+def itunes_lookup_podcast(podcast_id, limit=200, sort="recent", offset=0):
     """
-    Returns all episodes of podcast with ID `podcastId`
+    Returns all episodes of podcast with ID `podcast_id`
     """
 
     # Query for podcast info
     payload = {
-        "id": podcastId,
+        "id": podcast_id,
         "media": "podcast",
         "entity": "podcastEpisode",
         "sort": sort,
@@ -256,7 +260,7 @@ def itunes_lookup_podcast(podcastId, limit=200, sort="recent", offset=0):
         response = requests.get(url, params=payload)
         response.raise_for_status()
     except requests.RequestException:
-        print(f"iTunes Lookup API: Failed for {podcastId}")
+        print(f"iTunes Lookup API: Failed for {podcast_id}")
         return []
     
     data = response.json()
@@ -289,7 +293,7 @@ def save_all_episodes_podcast_and_transform(url, podcast_name, folder="ki_json",
             elif len(results) > 1:
                 if verbose: print(f'\n{podcast_name} has more than 1 result')
             podcast = results[0]
-            podcast_id = podcast['podcastId']
+            podcast_id = podcast['collectionId']
         except Exception as e:
             if verbose: print(f'Failed to find for {podcast_name}: {e}')
             failed[podcast_name] = f'Failed to find for {podcast_name}: {e}'
@@ -375,7 +379,7 @@ def save_all_episodes_podcast_and_transform(url, podcast_name, folder="ki_json",
                 else:
                     for result in results:
                         # Update `additional_links` and stop loop
-                        if result['podcastId'] == podcast_id:                  
+                        if result['collectionId'] == podcast_id:                  
                             add_itunes_data(spotify_episode, result, metadata) 
                             count_matched += 1
                             matched = True
@@ -401,15 +405,15 @@ def match_itunes_info(rss_item, itunes_episodes):
         if episode['wrapperType'] == "podcastEpisode":
             if episode["trackName"] == itunes_title:
                 return {
-                    'title': itunes_title,
+                    'trackName': itunes_title,
                     'itunes_url': episode['trackViewUrl'],
-                    'podcastName': episode['collectionName'],
+                    'collectionName': episode['collectionName'],
                     'original': episode,
                     }
             
     return {
-            'title': itunes_title,
+            'trackName': itunes_title,
             'itunes_url': None,
-            'podcastName': episode['collectionName'],
+            'collectionName': episode['collectionName'],
         }
 

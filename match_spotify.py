@@ -347,7 +347,7 @@ def save_all_episodes_podcast_and_transform(url, podcast_name, folder="ki_json",
         itunes_podcast = podcasts.search_podcasts(search_term=podcast_name, limit=5, search_type="podcast")
         if itunes_podcast:
             itunes_podcast = itunes_podcast[0]
-            itunes_id = itunes_podcast['podcastId']
+            itunes_id = itunes_podcast['collectionId']
             itunes_episodes = podcasts.itunes_lookup_podcast(itunes_id)
             show = next((item for item in itunes_episodes if item["kind"] == "podcast"), {})
             metadata = podcasts.scrape_itunes_metadata(itunes_id, show)
@@ -400,7 +400,7 @@ def save_all_episodes_podcast_and_transform(url, podcast_name, folder="ki_json",
                     else:
                         for result in results:
                             # Update `additional_links` and stop loop
-                            if result['podcastId'] == itunes_id:                  
+                            if result['collectionId'] == itunes_id:                  
                                 item = add_itunes_data(item, result, metadata) 
                                 count_matched += 1
                                 matched = True

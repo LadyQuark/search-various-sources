@@ -334,8 +334,9 @@ def save_all_episodes_podcast_and_transform(url, podcast_name, folder="ki_json",
 
     if fetch_itunes:
 
-        itunes_podcast = podcasts.search_podcasts(search_term=podcast_name, limit=5, search_type="podcast")[0]
+        itunes_podcast = podcasts.search_podcasts(search_term=podcast_name, limit=5, search_type="podcast")
         if itunes_podcast:
+            itunes_podcast = itunes_podcast[0]
             itunes_id = itunes_podcast['podcastId']
             itunes_episodes = podcasts.itunes_lookup_podcast(itunes_id)
             show = next((item for item in itunes_episodes if item["kind"] == "podcast"), {})
@@ -398,7 +399,9 @@ def save_all_episodes_podcast_and_transform(url, podcast_name, folder="ki_json",
                     if not matched:
                         failed.append(item)
                         if verbose: print("No matches found!")
-                            
+        else:
+            print(f"iTunes: No matching podcast with name {podcast_name} found")
+
         create_json_file(folder=folder, name="itunes_failed", source_dict=failed)
         create_json_file(folder=folder, name="itunes_fuzzy_matches", source_dict=fuzzy)
 

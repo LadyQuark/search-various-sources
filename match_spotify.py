@@ -25,7 +25,8 @@ sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=SPOTIFY_CLI
 pp = pprint.PrettyPrinter(depth=6)
 # Compile regex patterns
 RE_EP = re.compile("^\#?\d+|(?:ep|episode|EP|episode)\s?\#?\d+")     
-RE_NO_KEYWORDS = re.compile("\s+\|\s+")                                                  
+RE_NO_KEYWORDS = re.compile("\s+\|\s+")      
+SPOTIFY_MARKET = "US"                                            
 
 def main():
     # Parse and check arguments
@@ -144,7 +145,7 @@ def matching_episode_ids(title, podcast, verbose=False):
         while len(query) > 100:
             query = query.rsplit(" ", maxsplit=1)[0]
         # Get results
-        results = sp.search(q=query, type="episode", limit=10, offset=0, market="US")
+        results = sp.search(q=query, type="episode", limit=10, offset=0, market=SPOTIFY_MARKET)
     except spotipy.SpotifyException as e:
         print(e.msg, e.reason)
         if e.http_status == 429:
@@ -170,7 +171,7 @@ def get_episodes(ids):
     Get episode objects from Spotify for each id
     """
     try:
-        results = sp.episodes(ids, market="US")
+        results = sp.episodes(ids, market=SPOTIFY_MARKET)
     except spotipy.SpotifyException as e:
         print(e.msg)
         if e.http_status == 429:
@@ -256,7 +257,7 @@ def search_show(podcast_name, verbose=False):
         query = podcast_name
         while len(query) > 100:
             query = query.rsplit(" ", maxsplit=1)[0]
-        results = sp.search(q=query, type="show", limit=10, offset=0, market="US")
+        results = sp.search(q=query, type="show", limit=10, offset=0, market=SPOTIFY_MARKET)
     except spotipy.SpotifyException as e:
         print(e.msg, e.reason)
         if e.http_status == 429:
@@ -284,7 +285,7 @@ def get_show_episodes(show_id, verbose=False):
     offset = 0
     while True: 
         try:
-            results = sp.show_episodes(show_id=show_id, limit=50, offset=offset, market="US")
+            results = sp.show_episodes(show_id=show_id, limit=50, offset=offset, market=SPOTIFY_MARKET)
         except spotipy.SpotifyException as e:
             print(e.msg, e.reason)
             if e.http_status == 429:

@@ -300,12 +300,16 @@ def get_show_episodes(show_id, verbose=False):
 
 def save_all_episodes_podcast_and_transform(url, podcast_name, folder="ki_json", verbose=False, fetch_itunes=True):
     """
-    1. Gets ID of each podcast name in `podcast_list`
-    2. Gets RSS feed
-    3. Gets all episodes using iTunes Lookup API
-    4. Matches each RSS item with episodes from iTunes Lookup API
-    5. Transform all RSS items + corresponding iTunes link for episode
-    6. Saves transformed items in JSON file for each podcast
+    1. Gets show ID from `url`
+    2. Gets info about show from `podcast_name`
+    3. Gets all episodes of show
+    4. Transforms all episodes
+    If `fetch_itunes`:
+        5. Searches for show in iTunes
+        6. Gets all episodes for iTunes show and metadata for show
+        7. For each transformed Spotify metadata: 
+            a. match with iTunes episode and adds iTunes data
+            b. if no match, search iTunes for episode
     """
 
     parsed_url = urlparse(url)
@@ -316,8 +320,13 @@ def save_all_episodes_podcast_and_transform(url, podcast_name, folder="ki_json",
         raise Exception("Spotify URL not for podcast show")
     spotify_id = split_path[1]
 
-    # 2. Get info about episode from podcast
-    spotify_show = find_spotify_show(podcast_name, verbose)
+    try:
+        spotify_show = sp.show(spotify_id, market=SPOTIFY_MARKET)
+        podcast_name = spotify_show['name']
+        print(podcast_name)
+    except spotipy.SpotifyException as e:
+        raise Exception("Could not fetch spotify show ID#", spotify_id)
+    
     spotify_episodes = []
     for episode_set in get_show_episodes(spotify_id, verbose):
         spotify_episodes.extend(episode_set)

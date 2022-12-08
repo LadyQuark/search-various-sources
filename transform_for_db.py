@@ -40,7 +40,7 @@ def _db_item(media_type=None, tags=None):
     return db_item   
 
 def _best_thumbnail(data, choices, key=None):
-    if isinstance(data, dict):
+    if isinstance(data, dict) and data:
         for choice in choices:
             if choice in data and data[choice] != None and data[choice] != "":
                 if key:
@@ -121,7 +121,7 @@ def transform_itunes(episode, metadata, search_term=None):
         episode_thumbnail = _best_thumbnail(episode, ITUNES_THUMBS)
 
         db_item['title'] =  episode.get('trackName')
-        db_item['thumbnail'] = metadata['thumbnail'] if metadata['thumbnail'] != "" else episode_thumbnail
+        db_item['thumbnail'] = metadata.get('thumbnail') if metadata.get('thumbnail') else episode_thumbnail
         db_item['description'] = clean_html(episode.get('description', ""))
         db_item['authors'].append(authors)
         db_item['metadata']['audio_file'] = episode.get('episodeUrl')
@@ -176,7 +176,7 @@ def add_spotify_data(db_item, spotify_episode):
 def transform_spotify(episode, search_term=None, metadata={}):
     try:
         db_item = _db_item(media_type="audio", tags="podcast")
-        show = episode.get('show', {})
+        show = episode.get('show', metadata)
 
         db_item['title'] =  episode.get('name')
         db_item['thumbnail'] = show['images'][0]['url']
@@ -207,6 +207,7 @@ def transform_spotify(episode, search_term=None, metadata={}):
         db_item['publishedDate'] = standard_date(episode.get('release_date'))
     except Exception as e:
         print(e.__class__.__name__, e)
+        pp.pprint(episode)
         raise Exception(f"Failed transform_spotify: {e.__class__.__name__} {e}")
 
     return db_item 
@@ -216,10 +217,10 @@ def add_itunes_data(db_item, itunes_episode, metadata=None):
     podcast_id = itunes_episode['collectionId']
     if not metadata:
         metadata = scrape_itunes_metadata(podcast_id)
-    db_item['metadata']['additional_links']['itunes_url'] = itunes_episode.get('trackViewUrl')
     db_item['metadata']['rating'] = metadata.get('rating')
     db_item['metadata']['rating_count'] = metadata.get('rating_count')
     db_item['metadata']['podcast_id']['itunes_id'] = podcast_id
+    db_item['metadata']['additional_links']['itunes_url'] = itunes_episode.get('trackViewUrl')
     db_item['metadata']['id']['itunes_id'] = itunes_episode.get('trackId')
     db_item['original'].append(itunes_episode)            
 
@@ -438,7 +439,8 @@ def scrape_itunes_metadata(podcast_id, show={}):
         'rating': 0.0,
         'rating_count': 0,
         'total_episodes': show.get('trackCount'),
-        'authors': [show.get('artistName')]
+        'authors': [show.get('artistName')],
+        'thumbnail': _best_thumbnail(show, ITUNES_THUMBS)
     }
     # Check podcast_id
     if isinstance(podcast_id, int):

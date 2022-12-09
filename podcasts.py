@@ -342,19 +342,7 @@ def save_all_episodes_podcast_and_transform(url, podcast_name, folder="ki_json",
         return
     
     # Transform all episodes
-    episodes = []
-    itunes_episodes = itunes_lookup_podcast(podcast_id)
-    show = next((item for item in itunes_episodes if item["kind"] == "podcast"), {})
-    podcast_name = show['collectionName']
-    track_count = show['trackCount']
-    metadata = scrape_itunes_metadata(podcast_id, show) 
-    # create_json_file(folder="test", name=podcast_name, source_dict=itunes_episodes)
-    for item in itunes_episodes:
-        if item["wrapperType"] != "podcastEpisode":
-            continue
-        episode = transform_itunes(item, metadata)
-        if episode:                
-            episodes.append(episode)
+    episodes = get_all_episodes_and_transform(podcast_id)
 
     # Find Spotify show
     spotify_show = match_spotify.find_spotify_show(podcast_name, verbose)
@@ -367,8 +355,10 @@ def save_all_episodes_podcast_and_transform(url, podcast_name, folder="ki_json",
         spotify_results = match_spotify.get_show_episodes(spotify_show_id, verbose)
         for batch in spotify_results:
             spotify_episodes.extend(batch)
+        # Make dict of unmatched episodes
         spotify_unmatched = {spot['id']: spot for spot in spotify_episodes}
 
+        # Match every iTunes episode with unmatched episodes from Spotify
         for item in episodes:
             episode_title = item["title"]
             matched = False
@@ -379,7 +369,6 @@ def save_all_episodes_podcast_and_transform(url, podcast_name, folder="ki_json",
                 spot_name = spot['name']
 
                 if match_spotify.match_title(episode_title, podcast_name, spot_name):
-                    # Update spotify link                
                     item = add_spotify_data(item, spot) 
                     matched = True
                     if verbose: print(f"\n{episode_title} -> {spot_name}")
@@ -398,33 +387,6 @@ def save_all_episodes_podcast_and_transform(url, podcast_name, folder="ki_json",
             else:
                 failed.append(item)
                 if verbose: print("No matches found!")  
-
-        if spotify_unmatched and track_count >= 200:
-            unmatched_count = len(spotify_unmatched)
-            for i, spot_id in enumerate(spotify_unmatched): 
-                spot = spotify_unmatched[spot_id]
-                spotify_episode = transform_spotify(spot, metadata=spotify_show)
-                if not spotify_episode:
-                    break
-                query = spot['name']
-                while len(query) > 100:
-                    query = query.rsplit(" ", maxsplit=1)[0]
-                try:
-                    if verbose: progress(i, unmatched_count, "Searching iTunes by title")
-                    results = search_podcasts(query, attribute="titleTerm")
-                    sleep(5)
-                except Exception as e:
-                    print(e)
-                    failed.append(spotify_episode)
-                else:
-                    for result in results:
-                        # Update `additional_links` and stop loop
-                        if result['collectionId'] == podcast_id:                  
-                            add_itunes_data(spotify_episode, result, metadata) 
-                            count_matched += 1
-                            matched = True
-                            break
-                episodes.append(spotify_episode)
         
         create_json_file(folder=folder, name="spotify_failed", source_dict=failed)
         create_json_file(folder=folder, name="spotify_fuzzy_matches", source_dict=fuzzy)

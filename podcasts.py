@@ -35,15 +35,13 @@ def search_podcasts(search_term, limit=10, search_type="podcastEpisode", attribu
         "offset": offset
     }
     if attribute:
-        if attribute in attributes:
-            payload['attribute'] = attribute
+        payload['attribute'] = attribute
     # payload_str = parse.urlencode(payload, safe=':+')
     url = "https://itunes.apple.com/search"
     try:
         # print(f"Searching podcasts for {search_term}")
         response = requests.get(url, params=payload)
         response.raise_for_status()
-        print(response.url)
     
     except requests.exceptions.ConnectionError as e:
         if e.errno == -2:
@@ -265,6 +263,48 @@ def itunes_lookup_podcast(podcast_id, limit=200, sort="recent", offset=0):
     
     data = response.json()
     return data['results']
+
+
+def get_all_episodes_and_transform(show_id):
+    """ Fetch all episodes of given podcast and transform"""
+    
+    # Get recent 200 episodes of podcast with given id using iTunes Lookup API
+    results = itunes_lookup_podcast(show_id)
+    if not results:
+        return None
+
+    # Get metadata
+    show = results.pop(0) #first result has show info
+    podcast_name = show['collectionName']
+    track_count = show['trackCount']
+    metadata = scrape_itunes_metadata(show_id, show)     
+
+    # If podcast has more than 200 episodes, get episodes using iTunes Search API 
+    if track_count > 200:
+        episode_ids = set([item['trackId'] for item in results])
+        for offset in range(0, track_count, 200):
+            batch = search_podcasts(
+                search_term=podcast_name,
+                limit=200,
+                search_type="podcastEpisode", 
+                attribute="albumTerm",
+                offset=offset
+            )
+            # If result is unique, append to `results`
+            for item in batch:
+                if item['trackId'] not in episode_ids:
+                    results.append(item)
+                    episode_ids.add(item['trackId'])
+
+    # Transform results
+    episodes = []
+    for item in results:
+        episode = transform_itunes(item, metadata)
+        if episode:                
+            episodes.append(episode)
+    
+    return episodes
+    
 
 
 def save_all_episodes_podcast_and_transform(url, podcast_name, folder="ki_json", verbose=False):

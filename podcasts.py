@@ -187,12 +187,12 @@ def podcast_eps_search_and_transform(search_term, limit=10):
     for i, result in enumerate(search_results):
         progress(i, total, search_term)
             
-        podcast_id = result['original']['collectionId']
+        podcast_id = result['collectionId']
         itunes_results = itunes_lookup_podcast(podcast_id, limit=1)
         if itunes_results:
             show = next((item for item in itunes_results if item["kind"] == "podcast"), {})
         metadata = scrape_itunes_metadata(podcast_id, show) 
-        item = transform_itunes(result['original'], metadata, search_term=result['tag'])
+        item = transform_itunes(result, metadata, search_term=result['tag'])
         
         if item:
             # 3. Search in Spotify and add URL

@@ -281,6 +281,7 @@ def get_all_episodes_and_transform(show_id):
 
     # If podcast has more than 200 episodes, get episodes using iTunes Search API 
     if track_count > 200:
+        # print("Podcast has more than 200 episodes")
         episode_ids = set([item['trackId'] for item in results])
         for offset in range(0, track_count + 100, 200):
             batch = search_podcasts(
@@ -292,9 +293,12 @@ def get_all_episodes_and_transform(show_id):
             )
             # If result is unique, append to `results`
             for item in batch:
-                if item['collectionId'] == show_id and item['trackId'] not in episode_ids:
-                    results.append(item)
-                    episode_ids.add(item['trackId'])
+                if str(item['collectionId']) == str(show_id):
+                    if item['trackId'] not in episode_ids:
+                        results.append(item)
+                        episode_ids.add(item['trackId'])
+                # else:
+                #     print(item['collectionId'], "did not match show ID", show_id)
 
     # Transform results
     episodes = []
@@ -373,7 +377,7 @@ def save_all_episodes_podcast_and_transform(query, folder="ki_json", verbose=Fal
                 spot_name = spot['name']
 
                 if match_spotify.match_title(episode_title, podcast_name, spot_name):
-                    item = add_spotify_data(item, spot) 
+                    item = add_spotify_data(item, spot, podcast_id=spotify_show_id) 
                     matched = True
                     if verbose: print(f"\n{episode_title} -> {spot_name}")
                     break
@@ -396,7 +400,7 @@ def save_all_episodes_podcast_and_transform(query, folder="ki_json", verbose=Fal
                     spot_name = spot['name']
                         
                     if item["publishedDate"] == spot["release_date"]:
-                        item = add_spotify_data(item, spot) 
+                        item = add_spotify_data(item, spot, podcast_id=spotify_show_id) 
                         fuzzy.append(item)
                         matched = True
                         if verbose: print(f"\n{episode_title} -> {spot_name}")

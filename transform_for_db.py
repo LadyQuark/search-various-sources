@@ -33,7 +33,7 @@ def _db_item(media_type=None, tags=None):
             'isDeleted': False,
             'original': [],
             'publishedDate': None,
-            'status': 2,
+            'status': 1,
             'score': 0                    
         }
 
@@ -121,7 +121,7 @@ def transform_itunes(episode, metadata, search_term=None):
         episode_thumbnail = _best_thumbnail(episode, ITUNES_THUMBS)
 
         db_item['title'] =  episode.get('trackName')
-        db_item['thumbnail'] = metadata.get('thumbnail') if metadata.get('thumbnail') else episode_thumbnail
+        db_item['thumbnail'] = metadata['thumbnail'] if metadata['thumbnail'] != "" else episode_thumbnail
         db_item['description'] = clean_html(episode.get('description', ""))
         db_item['authors'].append(authors)
         db_item['metadata']['audio_file'] = episode.get('episodeUrl')
@@ -148,6 +148,9 @@ def transform_itunes(episode, metadata, search_term=None):
 
         db_item['original'].append(episode)
         db_item['publishedDate'] = standard_date(episode.get('releaseDate'))
+
+        calculate_score_podcast(db_item)
+        
     except Exception as e:
         print(e.__class__.__name__, e)
         logger.info(f"Failed transform_itunes: {e.__class__.__name__} {e}")
@@ -156,12 +159,12 @@ def transform_itunes(episode, metadata, search_term=None):
     return db_item 
 
 
-def add_spotify_data(db_item, spotify_episode):
+def add_spotify_data(db_item, spotify_episode, podcast_id=None):
     # Add Spotify URL
     db_item['metadata']['additional_links']['spotify_url'] = spotify_episode['external_urls']['spotify']
     # Add Spotify ID
     db_item['metadata']['id']['spotify_id'] = spotify_episode.get('id')
-    db_item['metadata']['podcast_id']['spotify_id'] = spotify_episode.get('show', {}).get('id')
+    db_item['metadata']['podcast_id']['spotify_id'] = podcast_id or spotify_episode.get('show', {}).get('id')
     # Add Spotify result to original
     db_item['original'].append(spotify_episode)
     # Add description if missing
@@ -217,12 +220,14 @@ def add_itunes_data(db_item, itunes_episode, metadata=None):
     podcast_id = itunes_episode['collectionId']
     if not metadata:
         metadata = scrape_itunes_metadata(podcast_id)
+    db_item['metadata']['additional_links']['itunes_url'] = itunes_episode.get('trackViewUrl')
     db_item['metadata']['rating'] = metadata.get('rating')
     db_item['metadata']['rating_count'] = metadata.get('rating_count')
     db_item['metadata']['podcast_id']['itunes_id'] = podcast_id
-    db_item['metadata']['additional_links']['itunes_url'] = itunes_episode.get('trackViewUrl')
     db_item['metadata']['id']['itunes_id'] = itunes_episode.get('trackId')
-    db_item['original'].append(itunes_episode)            
+    db_item['metadata']['audio_file'] = itunes_episode.get('episodeUrl', db_item['metadata']['audio_file'])
+    db_item['original'].append(itunes_episode)  
+    calculate_score_podcast(db_item)          
 
 
 def transform_book(item, search_term):
@@ -439,7 +444,7 @@ def scrape_itunes_metadata(podcast_id, show={}):
         'rating': 0.0,
         'rating_count': 0,
         'total_episodes': show.get('trackCount'),
-        'authors': [show.get('artistName')],
+        'authors': show.get('artistName'),
         'thumbnail': _best_thumbnail(show, ITUNES_THUMBS)
     }
     # Check podcast_id
@@ -486,3 +491,56 @@ def scrape_itunes_metadata(podcast_id, show={}):
     
     return metadata
 
+
+def calculate_score_podcast(db_item, score=0):
+    metadata = db_item['metadata']
+    
+    if metadata['rating'] > 4.5:
+        if metadata['rating_count'] >= 2000:
+            score += 5
+        elif metadata['rating_count'] >= 1000:
+            score += 4
+        elif metadata['rating_count'] >= 500:
+            score += 3
+        else:
+            score += 2
+    
+    elif metadata['rating'] > 4.0:
+        if metadata['rating_count'] >= 2000:
+            score += 4
+        elif metadata['rating_count'] >= 1000:
+            score += 3
+        elif metadata['rating_count'] >= 500:
+            score += 2
+        else:
+            score += 1
+        
+    elif metadata['rating'] > 3.5:
+        if metadata['rating_count'] >= 2000:
+            score += 3
+        elif metadata['rating_count'] >= 1000:
+            score += 2
+        elif metadata['rating_count'] >= 500:
+            score += 1
+        else:
+            score += 0
+
+    # Total episodes
+    if metadata['total_episodes'] > 500:
+        score += 3
+    elif metadata['total_episodes'] > 300:
+        score += 2
+    elif metadata['total_episodes'] > 100:
+        score += 1
+
+    pub_date = datetime.datetime.strptime(db_item['publishedDate'], "%Y-%m-%d")
+    today = datetime.datetime.today()
+    days_since_pub = (today - pub_date).days
+    if days_since_pub > 730:
+        score += -3
+    elif days_since_pub > 365:
+        score += -2
+    elif days_since_pub > 180:
+        score += -1
+
+    db_item['score'] = score

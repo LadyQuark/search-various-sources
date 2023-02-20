@@ -1,11 +1,13 @@
 from datetime import datetime, timedelta, date
 from dateutil.parser import parse
+from urllib.parse import urlsplit, urlunsplit
 from html import unescape
 import json
 import os
 from pathlib import Path
 import re
 import logging
+import csv
 
 RE_TAG = re.compile('<.*?>')
 RE_SPACE_TAG = re.compile('&nbsp;')
@@ -22,6 +24,26 @@ logger = logging.getLogger('common')
 def standard_date(pub_date):
     """ Standardise date format """
     if pub_date:
+        
+        if "ago" in pub_date:
+            hours = 0
+            days = 0
+            
+            re_hours = re.compile("(\d+) hours ago")
+            hours_search = re_hours.search(pub_date)
+            if hours_search:
+                hours = int(hours_search.group(1))
+            
+            re_days = re.compile("(\d+) days ago")
+            days_search = re_days.search(pub_date)
+            if days_search:
+                days = int(days_search.group(1))
+            
+            if hours > 0 or days > 0:
+                pub_date = datetime.today() - timedelta(days=days, hours=hours)
+                return pub_date.strftime("%Y-%m-%d")
+            return None
+        
         try:
             # Date format: YYYY -> YYYY:01:01
             date = datetime.strptime(pub_date, "%Y")
@@ -243,3 +265,23 @@ class CustomEncoder(json.JSONEncoder):
         if isinstance(obj, (datetime, date)):
             return {"$date": str(obj.isoformat())}
         return json.JSONEncoder.default(self, obj)
+
+def remove_queries(url):
+    cleaned_url = urlunsplit(
+                    urlsplit(url)._replace(query="", fragment="")
+                )
+    return cleaned_url
+
+def append_dict_to_csv(filepath, row):
+    if not path_exists_or_creatable(filepath):
+        raise Exception("CSV cannot be created")
+
+    headers = list(row.keys())
+    if not os.path.exists(filepath):
+        with open(filepath, 'w') as f:
+            w = csv.DictWriter(f, headers)
+            w.writeheader()
+            
+    with open(filepath, 'a') as f:
+        w = csv.DictWriter(f, headers)
+        w.writerow(row)

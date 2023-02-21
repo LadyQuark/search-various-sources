@@ -152,15 +152,19 @@ def get_sciencedirect(pii):
         if response.status_code == 429:
             raise Exception("Elsevier API Quota exceeded")
         elif response.status_code == 400:
-            raise Exception(f"Invalid PII/publication ID {id}")
+            print(f"Invalid PII/publication ID {pii}")
+            return None
         elif response.status_code == 404:
-            raise Exception(f"Resource not found for {id}")
+            print(f"Resource not found for {pii}")
+            return None
         else:
-            raise Exception(f"Unable to fetch article {id}: {e}")
+            print(f"Unable to fetch article {pii}: {e}")
+            return None
     # Get JSON response
     data = response.json()
     # Check key
     if 'full-text-retrieval-response' not in data:
-        raise Exception(f"Unable to parse article {id}")
+        print(f"Unable to parse article {pii}")
+        return None
     
     return data['full-text-retrieval-response']

@@ -5,6 +5,7 @@ import pprint
 import requests
 from bs4 import BeautifulSoup
 from common import standard_date, standard_duration, timestamp_ms, clean_html, split_by_and
+import traceback
 
 logger = logging.getLogger('transform')
 pp = pprint.PrettyPrinter(depth=6)
@@ -267,7 +268,7 @@ def transform_youtube(item, search_term, type="youtube"):
     try:
         db_item = _db_item(media_type="video", tags="youtube")
         snippet = item['snippet']
-        statistics = item['statistics']
+        statistics = item.get('statistics', {})
 
         db_item['title'] = snippet.get('title')
         db_item['thumbnail'] = _best_thumbnail(snippet.get('thumbnails'), YOUTUBE_THUMBS, key="url")
@@ -286,7 +287,7 @@ def transform_youtube(item, search_term, type="youtube"):
     except Exception as e:
         print(e.__class__.__name__, e)
         logger.info(f"Failed transform_youtube: {e.__class__.__name__} {e}")
-        pp.pprint(item)
+        # pp.pprint(item)
         return None
     
     return db_item
@@ -386,7 +387,8 @@ def transform_scd(data, search_term=None):
                     if link['@rel'] == "scidir"), None)
 
         db_item['title'] = coredata['dc:title']
-        db_item['description'] = clean_html(coredata['dc:description'].strip())
+        description = coredata.get('dc:description', "") or ""
+        db_item['description'] = clean_html(description.strip())
         db_item['authors'] = [creator["$"] for creator in coredata.get('dc:creator', [])]
         db_item['metadata']['url'] = url
         db_item['metadata']['id'] = url.split('pii/')[1]
@@ -397,6 +399,7 @@ def transform_scd(data, search_term=None):
     
     except Exception as e:
         print(e.__class__.__name__, e)
+        traceback.print_exc()
         logger.info(f"Failed transform_scd: {e.__class__.__name__} {e}")
         return None
 

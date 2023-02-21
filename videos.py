@@ -78,8 +78,10 @@ def search_youtube(search_term, limit=10, country="US", lang="en"):
 
 def youtube_search_and_transform(search_term, limit=10):
     search_results = search_youtube(search_term, limit)
+    all_ids = [item['id']['videoId'] for item in search_results]
+    complete_results = youtube_videos_stats(all_ids)
     db_items = []
-    for result in search_results:
+    for result in complete_results:
         try:
             item = transform_youtube(result, search_term)
         except Exception as e:

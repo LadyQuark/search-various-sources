@@ -146,7 +146,7 @@ def create_json_file(folder, name, source_dict):
     
     # Write to JSON file
     with open(filepath, 'w') as file:
-            file.write(json_string)
+        file.write(json_string)
 
 def get_valid_filename(name):
     """

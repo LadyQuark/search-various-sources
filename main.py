@@ -22,7 +22,7 @@ def main():
     # Parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("search_file", help="Path of the text file containing search terms")
-    parser.add_argument("-l", "--limit", help="Update only first 10 items", type=int, default=TOTAL_RESULTS)
+    parser.add_argument("-l", "--limit", help="Total results", type=int, default=TOTAL_RESULTS)
     args = parser.parse_args()
     
     # Get search terms from text file at `args.search_time`

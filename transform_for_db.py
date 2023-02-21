@@ -383,13 +383,16 @@ def transform_scd(data, search_term=None):
     try:  
         db_item = _db_item(media_type="article", tags="research")  
         coredata = data['coredata'] 
+        creators = coredata.get('dc:creator', [])
+        if isinstance(creators, dict):
+            creators = [creators]
         url = next((link['@href'] for link in coredata.get("link", []) 
                     if link['@rel'] == "scidir"), None)
 
         db_item['title'] = coredata['dc:title']
         description = coredata.get('dc:description', "") or ""
         db_item['description'] = clean_html(description.strip())
-        db_item['authors'] = [creator["$"] for creator in coredata.get('dc:creator', [])]
+        db_item['authors'] = [creator["$"] for creator in creators]
         db_item['metadata']['url'] = url
         db_item['metadata']['id'] = url.split('pii/')[1]
         db_item['metadata']['citations'] = ""

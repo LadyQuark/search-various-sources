@@ -55,14 +55,17 @@ def search_googlebooks(search_term, limit=10):
         "maxResults": min(limit, 40),
     }
 
-    results = []
+    final_results = []
     books_results = get_googlebooks(payload)
     for result in books_results:
-        results.extend(result)
-        if len(results) >= limit:
+        # results.extend(result)
+        for item in result:
+            if item['volumeInfo'].get('description', "") != "":
+                final_results.append(item)
+        if len(final_results) >= limit:
             books_results.close()
 
-    return results
+    return final_results
     
 def books_search_and_transform(search_term, limit=10):
     search_results = search_googlebooks(search_term, limit)
@@ -73,7 +76,8 @@ def books_search_and_transform(search_term, limit=10):
         except Exception as e:
             logger.warning(f"Transform error: {e}")
         else:
-            db_items.append(item)
+            if item:
+                db_items.append(item)
     return db_items
 
 

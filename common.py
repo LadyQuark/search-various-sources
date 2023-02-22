@@ -14,8 +14,13 @@ RE_SPACE_TAG = re.compile('&nbsp;')
 RE_EOL_TAG = re.compile('</p>|(<br>)+|(<br/>)+')
 RE_AND = re.compile('\s+&\s+|\s*and\s|\s*,\s*', flags=re.I)
 
+LOGGING_FOLDER = "log"
+LOGGING_FILENAME = "common.log"
+Path(LOGGING_FOLDER).mkdir(parents=True, exist_ok=True)
+filepath = os.path.join(LOGGING_FOLDER, LOGGING_FILENAME)
+
 logging.basicConfig(
-    filename="log/common.log",
+    filename=filepath,
     filemode="a",
     format="%(asctime)s %(name)s %(message)s",
     level=logging.DEBUG)

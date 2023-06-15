@@ -27,7 +27,7 @@ collection = db['knowledgeitem_master']
 
 TOTAL_RESULTS = 100
 
-def search_various_sources(search_list, limit=TOTAL_RESULTS, delay=False):
+def search_various_sources(search_list, limit=TOTAL_RESULTS):
     
     # Dict containing results of each category
     results = {
@@ -52,11 +52,7 @@ def search_various_sources(search_list, limit=TOTAL_RESULTS, delay=False):
         for i, search_term in enumerate(search_list):
             progress(i+1, total, type)
             # Get results
-            if type == "podcasts":
-                search_results = fn(search_term, limit)
-                if delay: sleep(5)
-            else:
-                search_results = fn(search_term, limit)
+            search_results = fn(search_term, limit)
             # Add results to results list
             if search_results:
                 results[type].extend(search_results[:limit])
@@ -68,7 +64,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("search_file", help="Path of the text file containing search terms")
     parser.add_argument("-l", "--limit", help="Total results", type=int, default=TOTAL_RESULTS)
-    parser.add_argument("-d", "--delay", help="Delay searches because of rate limits", action="store_true")
     args = parser.parse_args()
     
     # Get search terms from text file at `args.search_time`
@@ -77,7 +72,7 @@ def main():
     except Exception as e:
         exit(e)
 
-    results = search_various_sources(search_list=search_list, limit=args.limit, delay=args.delay)
+    results = search_various_sources(search_list=search_list, limit=args.limit)
     
     print("Inserting in MongoDB")
     for type in results:

@@ -7,14 +7,15 @@ from common import create_json_file, load_existing_json_file
 from transform_for_db import transform_rss_item, transform_itunes, transform_spotify, add_spotify_data, scrape_itunes_metadata, add_itunes_data
 from urllib.parse import urlparse
 import match_spotify
-from time import sleep
 from progress import progress
+from ratelimiter import RateLimiter
 
 
 logger = logging.getLogger('podcast-log')
 pp = pprint.PrettyPrinter(depth=6)
 attributes = ['titleTerm', 'languageTerm', 'authorTerm', 'genreIndex', 'artistTerm', 'ratingIndex', 'keywordsTerm', 'descriptionTerm']
 
+@RateLimiter(max_calls=20, period=60)
 def search_podcasts(search_term, limit=10, search_type="podcastEpisode", attribute=None, offset=0):
     """ 
     Searches podcasts for given search term using iTunes Search API
@@ -51,6 +52,7 @@ def search_podcasts(search_term, limit=10, search_type="podcastEpisode", attribu
     
     except requests.exceptions.HTTPError as e:
         if response.status_code == 403:
+            print("Quota exceeded for iTunes Search API")
             logger.warning("Quota exceeded for iTunes Search API")
             raise Exception("Quota exceeded for iTunes Search API")
         logger.warning(f"iTunes Search API: Failed search for {search_term}: {e}")

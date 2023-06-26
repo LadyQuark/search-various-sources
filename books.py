@@ -31,7 +31,7 @@ def get_googlebooks(payload):
             break    
         # Parse response
         data = response.json()
-        results = [item for item in data['items']]
+        results = [item for item in data.get('items', [])]
         # Yield list of title and url
         # print(f"{startIndex} for {payload['q']}")
         yield results

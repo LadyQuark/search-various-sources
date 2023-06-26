@@ -90,7 +90,7 @@ def research_search_and_transform(search_term, limit=10):
         article = get_sciencedirect(pii)
         if not article:
             continue
-        item = transform_scd(article)
+        item = transform_scd(article, search_term)
         if not item:
             continue
         db_items.append(item)

@@ -428,7 +428,7 @@ def transform_tedtalks(data, search_term=None):
         db_item['authors'].append(player.get('speaker', ""))
         db_item['metadata']['id'] = video['id']
         db_item['metadata']['url'] = player['canonical']
-        db_item['metadata']['tag'] = tag
+        db_item['metadata']['tag'] = [search_term.strip().lower()] if isinstance(search_term, str) else []
         db_item['metadata']['video_length'] = str(datetime.timedelta(seconds=video.get('duration', 0)))
         db_item['metadata']['additional_links'] = {'youtube_url': youtube_url}
         db_item['metadata']['view_count'] = video.get('viewedCount', 0)

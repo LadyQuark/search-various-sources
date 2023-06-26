@@ -23,6 +23,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("search_file", help="Path of the text file containing search terms")
     parser.add_argument("-l", "--limit", help="Total results", type=int, default=TOTAL_RESULTS)
+    parser.add_argument("-f", "--folder", help="Destination folder", type=str, default='ki_json')
     args = parser.parse_args()
     
     # Get search terms from text file at `args.search_time`
@@ -49,16 +50,21 @@ def main():
         ('tedtalks', ted_youtube_search_and_transform),
         ('books', books_search_and_transform),
     ]
-    folder_name = os.path.join("ki_json", os.path.basename(args.search_file).replace(".txt", ""))
+    folder_name = os.path.join(args.folder, os.path.basename(args.search_file).replace(".txt", ""))
     # Loop through each function
     for type, fn in search_functions:
         # Loop through each search term
         for i, search_term in enumerate(search_list):
-            progress(i+1, total, type)
+            # progress(i+1, total, type)
             # Get results
-            search_results = fn(search_term, args.limit)
-            # Add results to results list
-            results[type].extend(search_results)
+            try:
+                search_results = fn(search_term, args.limit)
+            except Exception as e:
+                print("FATAL ERROR:", e)
+            else:
+                # Add results to results list
+                print('{:<10s} {:<20s} {:<3s}'.format( type.upper(), search_term, str(len(search_results)) ))
+                results[type].extend(search_results)
         # Create json file for each category of results
         create_json_file(
             folder=folder_name, name=type, source_dict=results[type]

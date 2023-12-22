@@ -6,6 +6,8 @@ import requests
 from bs4 import BeautifulSoup
 from common import standard_date, standard_duration, timestamp_ms, clean_html, split_by_and
 import traceback
+import unicodedata
+import re
 
 logger = logging.getLogger('transform')
 pp = pprint.PrettyPrinter(depth=6)
@@ -35,7 +37,9 @@ def _db_item(media_type=None, tags=None):
             'original': [],
             'publishedDate': None,
             'status': 1,
-            'score': 0                    
+            'score': 0,
+            'sourceExists': True,
+            'slug': ""                    
         }
 
     return db_item   
@@ -124,7 +128,8 @@ def transform_itunes(episode, metadata, search_term=None):
         db_item['title'] =  episode.get('trackName')
         db_item['thumbnail'] = metadata['thumbnail'] if metadata['thumbnail'] != "" else episode_thumbnail
         db_item['description'] = clean_html(episode.get('description', ""))
-        db_item['authors'].append(authors)
+        # db_item['authors'].append(authors)
+        db_item['authors'].append(episode.get('collectionName', ""))
         db_item['metadata']['audio_file'] = episode.get('episodeUrl')
         db_item['metadata']['podcast_title'] = episode.get('collectionName')
         db_item['metadata']['url'] = episode.get('trackViewUrl')
@@ -150,7 +155,8 @@ def transform_itunes(episode, metadata, search_term=None):
         db_item['original'].append(episode)
         db_item['publishedDate'] = standard_date(episode.get('releaseDate'))
 
-        calculate_score_podcast(db_item)
+        db_item['score'] = calculate_score_podcast(db_item)
+        db_item['slug'] = slugify(db_item['title'])
         
     except Exception as e:
         print(e.__class__.__name__, e)
@@ -185,7 +191,8 @@ def transform_spotify(episode, search_term=None, metadata={}):
         db_item['title'] =  episode.get('name')
         db_item['thumbnail'] = show['images'][0]['url']
         db_item['description'] = clean_html(episode.get('description', ""))
-        db_item['authors'].append(show.get('publisher', ""))
+        # db_item['authors'].append(show.get('publisher', ""))
+        db_item['authors'].append(show.get('name', ""))
         db_item['metadata']['audio_file'] = episode.get('audio_preview_url')
         db_item['metadata']['podcast_title'] = show.get('name')
         db_item['metadata']['url'] = episode['external_urls']['spotify']
@@ -209,6 +216,8 @@ def transform_spotify(episode, search_term=None, metadata={}):
         db_item['metadata']['episode_thumbnail'] = episode['images'][0]['url']
         db_item['original'].append(episode)
         db_item['publishedDate'] = standard_date(episode.get('release_date'))
+        db_item['slug'] = slugify(db_item['title'])
+
     except Exception as e:
         print(e.__class__.__name__, e)
         pp.pprint(episode)
@@ -228,7 +237,7 @@ def add_itunes_data(db_item, itunes_episode, metadata=None):
     db_item['metadata']['id']['itunes_id'] = itunes_episode.get('trackId')
     db_item['metadata']['audio_file'] = itunes_episode.get('episodeUrl', db_item['metadata']['audio_file'])
     db_item['original'].append(itunes_episode)  
-    calculate_score_podcast(db_item)          
+    db_item['score'] = calculate_score_podcast(db_item)          
 
 
 def transform_book(item, search_term):
@@ -254,6 +263,7 @@ def transform_book(item, search_term):
         db_item['metadata']['tag'] = [search_term.strip().lower()] if isinstance(search_term, str) else []
         db_item['original'].append(item)
         db_item['publishedDate'] = standard_date(volume.get('publishedDate'))  
+        db_item['slug'] = slugify(db_item['title']) 
         
     except Exception as e:
         print(e.__class__.__name__, e)
@@ -283,6 +293,7 @@ def transform_youtube(item, search_term, type="youtube"):
         db_item['metadata']['tag'] = [search_term.strip().lower()] if isinstance(search_term, str) else []
         db_item['original'].append(item)
         db_item['publishedDate'] = standard_date(snippet.get('publishedAt'))
+        db_item['slug'] = slugify(db_item['title']) 
 
     except Exception as e:
         print(e.__class__.__name__, e)
@@ -369,6 +380,7 @@ def transform_pubmed(data, search_term=None):
         db_item['metadata']['tag'] = [search_term.strip().lower()] if isinstance(search_term, str) else []
         db_item['original'].append(medline)
         db_item['publishedDate'] = pub_date
+        db_item['slug'] = slugify(db_item['title']) 
 
     except Exception as e:
         print(e.__class__.__name__, e)
@@ -399,6 +411,7 @@ def transform_scd(data, search_term=None):
         db_item['metadata']['tag'] = [search_term.strip().lower()] if isinstance(search_term, str) else []
         db_item['original'].append(data)
         db_item['publishedDate'] = standard_date(coredata.get('prism:coverDate'))
+        db_item['slug'] = slugify(db_item['title']) 
     
     except Exception as e:
         print(e.__class__.__name__, e)
@@ -427,13 +440,15 @@ def transform_tedtalks(data, search_term=None):
         db_item['description'] = clean_html(video['description'].strip())
         db_item['authors'].append(player.get('speaker', ""))
         db_item['metadata']['id'] = video['id']
-        db_item['metadata']['url'] = player['canonical']
+        db_item['metadata']['url'] = player.get('canonical', f"https://www.ted.com/talks/{video['slug']}")
         db_item['metadata']['tag'] = [search_term.strip().lower()] if isinstance(search_term, str) else []
         db_item['metadata']['video_length'] = str(datetime.timedelta(seconds=video.get('duration', 0)))
         db_item['metadata']['additional_links'] = {'youtube_url': youtube_url}
+        db_item['metadata']['language'] = video.get('language')
         db_item['metadata']['view_count'] = video.get('viewedCount', 0)
         db_item['original'].append(data)
         db_item['publishedDate'] = standard_date(video.get('publishedAt'))
+        db_item['slug'] = slugify(db_item['title']) 
 
     except Exception as e:
         print(e.__class__.__name__, e)
@@ -550,3 +565,27 @@ def calculate_score_podcast(db_item, score=0):
         score += -1
 
     db_item['score'] = score
+
+    return score
+
+
+def slugify(value, allow_unicode=False):
+    """
+    From Django: https://github.com/django/django/blob/main/django/utils/text.py
+    Convert to ASCII if 'allow_unicode' is False. Convert spaces or repeated
+    dashes to single dashes. Remove characters that aren't alphanumerics,
+    underscores, or hyphens. Convert to lowercase. Also strip leading and
+    trailing whitespace, dashes, and underscores.
+    """
+    value = str(value)
+    if allow_unicode:
+        value = unicodedata.normalize("NFKC", value)
+    else:
+        value = (
+            unicodedata.normalize("NFKD", value)
+            .encode("ascii", "ignore")
+            .decode("ascii")
+        )
+    value = re.sub(r"[^\w\s-]", "", value.lower())
+    slug = re.sub(r"[-\s]+", "-", value).strip("-_")    
+    return slug

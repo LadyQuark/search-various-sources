@@ -211,7 +211,7 @@ def podcast_eps_search_and_transform(search_term, limit=10):
             # 4. Collect transformed item
             db_items.append(item)      
     
-    return db_items
+    return db_items[:limit]
 
 
 def match_title(rss_item, episode_title):

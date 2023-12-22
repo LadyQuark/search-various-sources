@@ -95,7 +95,7 @@ def research_search_and_transform(search_term, limit=10):
             continue
         db_items.append(item)
 
-    return db_items
+    return db_items[:limit]
 
 
 def get_abstract(doi):

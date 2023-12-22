@@ -59,7 +59,7 @@ def ted_youtube_search_and_transform(search_term, limit=10, include_tedx=True):
         else:
             db_items.append(item)
     
-    return db_items
+    return db_items[:limit]
 
 def get_tedtalk(url):
     talk_id = url.rstrip("/").rsplit("/", maxsplit=1)

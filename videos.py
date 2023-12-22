@@ -88,7 +88,7 @@ def youtube_search_and_transform(search_term, limit=10):
             logger.warning(f"Transform error: {e}")
         else:
             db_items.append(item)
-    return db_items
+    return db_items[:limit]
 
 
 def search_youtube_channel(search_term, channelId, limit=10, order="relevance", verbose=False):

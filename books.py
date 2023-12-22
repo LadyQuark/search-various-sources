@@ -65,7 +65,7 @@ def search_googlebooks(search_term, limit=10):
         if len(final_results) >= limit:
             books_results.close()
 
-    return final_results
+    return final_results[:limit]
     
 def books_search_and_transform(search_term, limit=10):
     search_results = search_googlebooks(search_term, limit)
@@ -78,7 +78,7 @@ def books_search_and_transform(search_term, limit=10):
         else:
             if item:
                 db_items.append(item)
-    return db_items
+    return db_items[:limit]
 
 
 def get_googlebooks_volume(book_id):
